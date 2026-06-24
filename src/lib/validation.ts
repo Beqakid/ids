@@ -57,6 +57,73 @@ export function parseLimitOffset(
   return { limit, offset };
 }
 
+// ── Phase 3 additions ────────────────────────────────────────
+
+/** app_id must be lowercase snake_case (letters, digits, underscores). */
+const APP_ID_RE = /^[a-z][a-z0-9_]*$/;
+
+export function isValidAppId(value: string): boolean {
+  return APP_ID_RE.test(value);
+}
+
+/** tenant_key must be lowercase letters, digits, and hyphens. URL/subdomain safe. */
+const TENANT_KEY_RE = /^[a-z][a-z0-9-]*$/;
+
+export function isValidTenantKey(value: string): boolean {
+  return TENANT_KEY_RE.test(value);
+}
+
+/** role_key must be lowercase snake_case (letters, digits, underscores). */
+const ROLE_KEY_RE = /^[a-z][a-z0-9_]*$/;
+
+export function isValidRoleKey(value: string): boolean {
+  return ROLE_KEY_RE.test(value);
+}
+
+/** Basic origin validation — must start with http:// or https:// */
+export function isValidOrigin(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/** Parse and validate a JSON metadata field. Returns parsed object or null. */
+export function parseJsonMetadata(
+  value: unknown
+): Record<string, unknown> | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      // fall through
+    }
+  }
+  throw new ValidationError("metadata must be a valid JSON object.");
+}
+
+/** Validate that a value is in an allowed set, with a friendly error. */
+export function validateAllowedArrayValue<T extends string>(
+  value: string,
+  allowed: readonly T[],
+  fieldName: string
+): asserts value is T {
+  if (!isAllowedValue(value, allowed)) {
+    throw new ValidationError(
+      `Invalid ${fieldName}. Allowed: ${allowed.join(", ")}`
+    );
+  }
+}
+
 /** Typed validation error so route handlers can catch it. */
 export class ValidationError extends Error {
   constructor(message: string) {
