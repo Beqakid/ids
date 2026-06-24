@@ -1,0 +1,14 @@
+name = "ids-api"
+main = "src/index.ts"
+compatibility_date = "2025-06-13"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "development"
+SERVICE_VERSION = "0.1.0"
+ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:5173,http://localhost:8787"
+
+[[d1_databases]]
+binding = "IDS_DB"
+database_name = "ids-db"
+database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
