@@ -7,6 +7,14 @@ export interface Env {
   SERVICE_VERSION: string;
   /** Comma-separated list of allowed CORS origins */
   ALLOWED_ORIGINS: string;
+
+  // ── Twilio Verify (added as Cloudflare Worker secrets) ─────
+  /** Twilio Account SID — set via `wrangler secret put` */
+  TWILIO_ACCOUNT_SID: string;
+  /** Twilio Auth Token — set via `wrangler secret put` */
+  TWILIO_AUTH_TOKEN: string;
+  /** Twilio Verify Service SID — set via `wrangler secret put` */
+  TWILIO_VERIFY_SERVICE_SID: string;
 }
 
 /** Variables stored on the Hono context */
