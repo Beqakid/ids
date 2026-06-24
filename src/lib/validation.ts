@@ -131,3 +131,30 @@ export class ValidationError extends Error {
     this.name = "ValidationError";
   }
 }
+
+// ── Phase 4 additions ────────────────────────────────────────
+
+/**
+ * Permission key must be lowercase dot notation (a-z, 0-9, underscore, dot)
+ * and must contain at least one dot.
+ */
+const PERMISSION_KEY_RE = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
+
+export function isValidPermissionKey(value: string): boolean {
+  return PERMISSION_KEY_RE.test(value);
+}
+
+/** Role scope must be global, app, or tenant. */
+export function isValidRoleScope(value: string): boolean {
+  return ["global", "app", "tenant"].includes(value);
+}
+
+/** Risk level must be low, medium, high, or blocked. */
+export function isValidRiskLevel(value: string): boolean {
+  return ["low", "medium", "high", "blocked"].includes(value);
+}
+
+/** Permission effect must be allow or deny. */
+export function isValidPermissionEffect(value: string): boolean {
+  return ["allow", "deny"].includes(value);
+}
