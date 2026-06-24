@@ -45,7 +45,11 @@ export type AppAccessEventType =
   | "membership_lookup"
   | "membership_created"
   | "membership_updated"
-  | "membership_removed";
+  | "membership_removed"
+  | "role_lookup"
+  | "permission_lookup"
+  | "permission_check"
+  | "effective_permissions_lookup";
 
 export const APP_ACCESS_EVENT_TYPES: readonly AppAccessEventType[] = [
   "app_lookup",
@@ -55,6 +59,10 @@ export const APP_ACCESS_EVENT_TYPES: readonly AppAccessEventType[] = [
   "membership_created",
   "membership_updated",
   "membership_removed",
+  "role_lookup",
+  "permission_lookup",
+  "permission_check",
+  "effective_permissions_lookup",
 ] as const;
 
 // ── App ──────────────────────────────────────────────────────

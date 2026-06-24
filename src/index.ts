@@ -15,6 +15,10 @@ import internalContextRoutes from "./routes/internalContext";
 import internalUserMembershipsRoutes from "./routes/internalUserMemberships";
 import internalTenantMembershipsRoutes from "./routes/internalTenantMemberships";
 import internalAppMembershipsRoutes from "./routes/internalAppMemberships";
+import internalRolesRoutes from "./routes/internalRoles";
+import internalPermissionsRoutes from "./routes/internalPermissions";
+import internalPermissionChecksRoutes from "./routes/internalPermissionChecks";
+import internalUserPermissionsRoutes from "./routes/internalUserPermissions";
 
 const app = new Hono<HonoEnv>();
 
@@ -44,6 +48,12 @@ api.route("/internal/context", internalContextRoutes);
 api.route("/internal/users", internalUserMembershipsRoutes);
 api.route("/internal/tenants", internalTenantMembershipsRoutes);
 api.route("/internal/apps", internalAppMembershipsRoutes);
+
+// Internal routes (Phase 4)
+api.route("/internal/roles", internalRolesRoutes);
+api.route("/internal/permissions", internalPermissionsRoutes);
+api.route("/internal/permission-checks", internalPermissionChecksRoutes);
+api.route("/internal/users", internalUserPermissionsRoutes);
 
 app.route("/api", api);
 
