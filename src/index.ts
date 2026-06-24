@@ -6,6 +6,8 @@ import { errorHandler } from "./middleware/errorHandler";
 import healthRoutes from "./routes/health";
 import appsRoutes from "./routes/apps";
 import usersRoutes from "./routes/users";
+import internalUsersRoutes from "./routes/internalUsers";
+import internalSessionsRoutes from "./routes/internalSessions";
 
 const app = new Hono<HonoEnv>();
 
@@ -20,6 +22,10 @@ const api = new Hono<HonoEnv>();
 api.route("/", healthRoutes);
 api.route("/", appsRoutes);
 api.route("/", usersRoutes);
+
+// Internal routes (Phase 2)
+api.route("/internal/users", internalUsersRoutes);
+api.route("/internal/sessions", internalSessionsRoutes);
 
 app.route("/api", api);
 

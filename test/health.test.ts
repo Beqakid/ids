@@ -50,7 +50,7 @@ describe("GET /api/health", () => {
 });
 
 describe("GET /api/version", () => {
-  it("returns phase_1_foundation", async () => {
+  it("returns phase_2_core_identity", async () => {
     const req = new Request("http://localhost/api/version");
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -58,7 +58,7 @@ describe("GET /api/version", () => {
 
     expect(res.status).toBe(200);
     const json = (await res.json()) as any;
-    expect(json.data.phase).toBe("phase_1_foundation");
+    expect(json.data.phase).toBe("phase_2_core_identity");
     expect(json.data.service).toBe("ids");
     expect(json.data.version).toBe("0.1.0");
   });

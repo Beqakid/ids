@@ -24,7 +24,7 @@ health.get("/version", (c) => {
   return success(c, {
     service: SERVICE_NAME,
     version: getVersion(c.env),
-    phase: "phase_1_foundation",
+    phase: "phase_2_core_identity",
   });
 });
 
