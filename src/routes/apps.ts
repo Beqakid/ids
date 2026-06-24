@@ -1,24 +1,51 @@
 import { Hono } from "hono";
 import type { HonoEnv } from "../types/env";
-import { success } from "../lib/response";
+import { success, error } from "../lib/response";
+import { listApps, getAppById } from "../services/apps";
 
 const apps = new Hono<HonoEnv>();
 
 /**
- * Static app registry for Phase 1.
- * In later phases this will be backed by the ids_apps D1 table.
+ * GET /api/apps
+ * Phase 3: reads from D1 instead of static list.
  */
-const PLATFORM_APPS = [
-  { appId: "command_center", name: "Command Center", status: "planned" },
-  { appId: "kai", name: "Kai", status: "planned" },
-  { appId: "sms", name: "Shared Media Service", status: "planned" },
-  { appId: "carehia", name: "Carehia", status: "planned" },
-  { appId: "viliniu", name: "Viliniu", status: "planned" },
-  { appId: "volau", name: "Volau", status: "planned" },
-];
+apps.get("/apps", async (c) => {
+  const appList = await listApps(c.env);
+  return success(
+    c,
+    appList.map((a) => ({
+      appId: a.appId,
+      name: a.name,
+      appType: a.appType,
+      status: a.status,
+      description: a.description,
+    }))
+  );
+});
 
-apps.get("/apps", (c) => {
-  return success(c, PLATFORM_APPS);
+/**
+ * GET /api/apps/:appId
+ * Phase 3: return single app by app_id.
+ */
+apps.get("/apps/:appId", async (c) => {
+  const appId = c.req.param("appId");
+  const app = await getAppById(c.env, appId);
+
+  if (!app) {
+    return error(c, "APP_NOT_FOUND", "App not found.", 404);
+  }
+
+  return success(c, {
+    appId: app.appId,
+    name: app.name,
+    appType: app.appType,
+    status: app.status,
+    domain: app.domain,
+    allowedOrigins: app.allowedOrigins,
+    description: app.description,
+    createdAt: app.createdAt,
+    updatedAt: app.updatedAt,
+  });
 });
 
 export default apps;

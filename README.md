@@ -1,133 +1,117 @@
 # IDS — Shared Identity Service
 
-> The central identity, app access, role, permission, session, trust, and audit service for the Beqakid platform.
+> The central identity, app access, role, permission, session, and tenant management layer for the platform ecosystem.
 
-IDS is a **standalone shared service** — it does **not** live inside Carehia, Viliniu, Volau, SMS, Kai, or Command Center. All platform apps will integrate with IDS as their single source of truth for identity and access.
-
-## What IDS Answers (Future Phases)
-
-| Question | Example |
-|---|---|
-| Who is this user? | Authentication, profile |
-| Which app are they in? | App registry, session context |
-| Which tenant/business/project/team? | Multi-tenancy |
-| What role do they have? | Role management |
-| What are they allowed to do? | Permissions, policies |
-| How trusted are they? | Trust scores, MFA status |
-| Was the action recorded? | Audit logging |
+IDS is a **standalone** Cloudflare Worker that serves as the single source of truth for user identity, app registration, tenant management, and membership context across all platform applications (Command Center, Kai, SMS, Carehia, Viliniu, Volau).
 
 ---
 
-## Phase 1 — Foundation
+## Architecture
 
-Phase 1 established the **API skeleton, database foundation, and project structure**.
-
-### What Phase 1 Includes
-
-- ✅ Cloudflare Worker API with Hono router
-- ✅ Health and version endpoints
-- ✅ Static platform app registry endpoint
-- ✅ Placeholder user endpoint (no auth)
-- ✅ D1 database migration with foundational tables
-- ✅ CORS middleware (safe, origin-aware)
-- ✅ Request ID middleware (`x-request-id` on every response)
-- ✅ Global error handler with consistent JSON errors
-- ✅ Standardised success/error response helpers
-- ✅ Full test suite (Vitest + Cloudflare Workers pool)
+```
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│  Command     │  │     Kai      │  │     SMS      │
+│  Center      │  │              │  │              │
+└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+       │                 │                 │
+       └─────────────────┼─────────────────┘
+                         │
+                    ┌────▼────┐
+                    │   IDS   │  ← Cloudflare Worker
+                    │  (D1)   │
+                    └────┬────┘
+                         │
+       ┌─────────────────┼─────────────────┐
+       │                 │                 │
+┌──────▼───────┐  ┌──────▼───────┐  ┌──────▼───────┐
+│   Carehia    │  │   Viliniu    │  │    Volau     │
+│              │  │              │  │              │
+└──────────────┘  └──────────────┘  └──────────────┘
+```
 
 ---
 
-## Phase 2 — Core User Identity + Sessions
+## Current Phase: Phase 3 — App Registry + Tenants + Memberships
 
-Phase 2 introduces the **real identity data model** and **internal API foundation**.
+### What IDS can answer after Phase 3:
+- **Which app** is this request coming from? Is it registered and active?
+- **Which tenant** (business, project, care team, store, organization, workspace) does the user belong to?
+- **Does the user** have a membership inside that tenant?
+- **What role key** does the user hold inside the tenant?
+- **Is the context active and valid?** (user active + app active + tenant active + membership active)
+- **Who owns** a given tenant?
+- **Which users** belong to which app/tenant?
 
-### What Phase 2 Includes
+### What Phase 3 does NOT include:
+- Full role-based permissions (Phase 4)
+- Real login / password auth (Phase 4+)
+- OAuth / SSO (Phase 5+)
+- Admin UI / frontend (Phase 5+)
+- External app integration (Phase 5+)
+- Kai permission gate integration (Phase 5+)
 
-- ✅ Master user records (`ids_users`)
-- ✅ User emails with normalisation (`ids_user_emails`)
-- ✅ User phones with normalisation (`ids_user_phones`)
-- ✅ Session management with hashed tokens (`ids_sessions`)
-- ✅ Login event tracking (`ids_login_events`)
-- ✅ Audit logging for all identity actions
-- ✅ Internal user CRUD endpoints
-- ✅ Internal session create/revoke endpoints
-- ✅ Duplicate email prevention
-- ✅ User status lifecycle (active → suspended → blocked → deleted)
-- ✅ Automatic session revocation on user suspension/block/deletion
-- ✅ Session tokens stored as SHA-256 hashes only
-- ✅ Raw session token returned only once at creation
-- ✅ 25 passing tests
+---
 
-### What Phase 2 Does NOT Include
+## Phase History
 
-- ❌ Real login / authentication flows
-- ❌ Password authentication
-- ❌ OAuth / SSO
-- ❌ App integrations
-- ❌ Admin UI
-- ❌ Kai integration
-- ❌ Role or permission logic
-- ❌ Multi-tenancy
+| Phase | Name | Status |
+|-------|------|--------|
+| 1 | Foundation | ✅ Complete |
+| 2 | Core User Identity + Sessions | ✅ Complete |
+| 3 | App Registry + Tenants + Memberships | ✅ Complete |
+| 4 | Roles + Permissions | 🔜 Next |
+| 5 | Auth + SSO + OAuth | 📋 Planned |
 
 ---
 
 ## Tech Stack
 
-| Tool | Purpose |
-|---|---|
-| Cloudflare Workers | Runtime |
-| TypeScript | Language |
-| Hono | Lightweight router |
-| Cloudflare D1 | SQL database |
-| Wrangler | CLI / dev server |
-| Vitest | Testing (with `@cloudflare/vitest-pool-workers`) |
+- **Runtime:** Cloudflare Workers
+- **Language:** TypeScript
+- **Router:** Hono
+- **Database:** Cloudflare D1 (SQLite)
+- **Build/Deploy:** Wrangler
+- **Tests:** Vitest with `@cloudflare/vitest-pool-workers`
 
 ---
 
-## Project Structure
+## Database Schema
 
-```
-ids/
-├── src/
-│   ├── index.ts                        # Worker entry point
-│   ├── routes/
-│   │   ├── health.ts                   # GET /api/health, /api/version
-│   │   ├── apps.ts                     # GET /api/apps
-│   │   ├── users.ts                    # GET /api/users/me
-│   │   ├── internalUsers.ts            # Internal user CRUD + session mgmt
-│   │   └── internalSessions.ts         # Internal session create/revoke
-│   ├── services/
-│   │   ├── users.ts                    # User service (create, read, status)
-│   │   ├── sessions.ts                 # Session service (create, revoke, hash)
-│   │   └── audit.ts                    # Audit log writer
-│   ├── middleware/
-│   │   ├── requestId.ts                # x-request-id generation
-│   │   ├── cors.ts                     # Origin-aware CORS
-│   │   └── errorHandler.ts             # Global error handler
-│   ├── lib/
-│   │   ├── response.ts                 # success() / error() helpers
-│   │   ├── env.ts                      # Environment helpers
-│   │   ├── db.ts                       # D1 accessor
-│   │   └── validation.ts               # Lightweight validation helpers
-│   └── types/
-│       ├── env.ts                      # Env + HonoEnv types
-│       └── identity.ts                 # User, Session, Event types
-├── migrations/
-│   ├── 0001_initial_ids_foundation.sql  # Phase 1 tables
-│   └── 0002_core_identity_sessions.sql  # Phase 2 tables
-├── test/
-│   ├── setup.ts                        # Test migrations + helpers
-│   ├── health.test.ts
-│   ├── apps.test.ts
-│   ├── users.test.ts
-│   ├── sessions.test.ts
-│   └── audit.test.ts
-├── wrangler.toml
-├── package.json
-├── tsconfig.json
-├── vitest.config.ts
-└── README.md
-```
+### Phase 1 Tables
+| Table | Purpose |
+|-------|---------|
+| `ids_service_metadata` | Service-level key/value config |
+| `ids_apps` | Platform app registry |
+| `ids_audit_logs` | Audit log for all identity events |
+
+### Phase 2 Tables
+| Table | Purpose |
+|-------|---------|
+| `ids_users` | Master user records |
+| `ids_user_emails` | User email addresses (multiple per user) |
+| `ids_user_phones` | User phone numbers (multiple per user) |
+| `ids_sessions` | User sessions (hashed tokens) |
+| `ids_login_events` | Login / session lifecycle events |
+
+### Phase 3 Tables
+| Table | Purpose |
+|-------|---------|
+| `ids_tenants` | Tenant registry (business, project, workspace, etc.) |
+| `ids_memberships` | User–tenant–app memberships with role keys |
+| `ids_app_access_logs` | App access and context lookup audit trail |
+
+---
+
+## Registered Apps
+
+| App ID | Name | Type | Status |
+|--------|------|------|--------|
+| `command_center` | Command Center | admin | active |
+| `kai` | Kai | ai | active |
+| `sms` | Shared Media Service | media | active |
+| `carehia` | Carehia | marketplace | planned |
+| `viliniu` | Viliniu | marketplace | planned |
+| `volau` | Volau | knowledge | planned |
 
 ---
 
@@ -136,165 +120,132 @@ ids/
 ### Public Routes
 
 | Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/health` | Service health check |
-| `GET` | `/api/version` | Service version and phase |
-| `GET` | `/api/apps` | List of platform apps |
-| `GET` | `/api/users/me` | Current user (unauthenticated placeholder) |
+|--------|------|-------------|
+| `GET` | `/api/health` | Health check |
+| `GET` | `/api/version` | Service version + phase |
+| `GET` | `/api/apps` | List registered apps |
+| `GET` | `/api/apps/:appId` | Get app by app_id |
+| `GET` | `/api/users/me` | Auth check (not implemented yet) |
 
-### Internal Routes (Phase 2)
+### Internal User Routes (Phase 2)
 
 | Method | Path | Description |
-|---|---|---|
+|--------|------|-------------|
 | `POST` | `/api/internal/users` | Create a user |
 | `GET` | `/api/internal/users` | List users (paginated) |
 | `GET` | `/api/internal/users/:id` | Get user by ID |
 | `PATCH` | `/api/internal/users/:id/status` | Update user status |
-| `GET` | `/api/internal/users/:id/sessions` | List user's sessions |
-| `POST` | `/api/internal/users/:id/sessions/revoke-all` | Revoke all active sessions |
-| `POST` | `/api/internal/sessions` | Create a session |
+| `GET` | `/api/internal/users/:id/sessions` | List user sessions |
+| `POST` | `/api/internal/users/:id/sessions/revoke-all` | Revoke all sessions |
+
+### Internal Session Routes (Phase 2)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/internal/sessions` | Create session (returns one-time token) |
 | `POST` | `/api/internal/sessions/:id/revoke` | Revoke a session |
 
-### Response Format
+### Internal App Routes (Phase 3)
 
-All responses follow a consistent envelope:
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/internal/apps` | Create an app |
+| `PATCH` | `/api/internal/apps/:appId` | Update app fields |
+| `PATCH` | `/api/internal/apps/:appId/status` | Update app status |
+| `GET` | `/api/internal/apps/:appId/memberships` | List memberships for app |
+| `GET` | `/api/internal/apps/:appId/tenants/:tenantKey` | Get tenant by app + key |
 
-**Success:**
-```json
-{
-  "ok": true,
-  "data": { ... },
-  "requestId": "uuid"
-}
-```
+### Internal Tenant Routes (Phase 3)
 
-**Error:**
-```json
-{
-  "ok": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Human-readable message."
-  },
-  "requestId": "uuid"
-}
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/internal/tenants` | Create a tenant |
+| `GET` | `/api/internal/tenants` | List tenants (paginated, filterable) |
+| `GET` | `/api/internal/tenants/:id` | Get tenant by ID |
+| `PATCH` | `/api/internal/tenants/:id` | Update tenant fields |
+| `PATCH` | `/api/internal/tenants/:id/status` | Update tenant status |
+| `GET` | `/api/internal/tenants/:id/memberships` | List memberships for tenant |
+
+### Internal Membership Routes (Phase 3)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/internal/memberships` | Create a membership |
+| `PATCH` | `/api/internal/memberships/:id/status` | Update membership status |
+| `POST` | `/api/internal/memberships/:id/remove` | Remove membership (soft delete) |
+| `GET` | `/api/internal/users/:id/memberships` | List memberships for user |
+
+### Internal Context Routes (Phase 3)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/internal/context?userId=...&appId=...&tenantId=...` | Full user–app–tenant context |
 
 ---
 
-## Security Notes (Phase 2)
+## Security Decisions
 
-- **Session tokens** are hashed with SHA-256 before storage. The raw token is returned only once at session creation and never again.
-- **No endpoint** returns `session_token_hash`, internal stack traces, or secret env values.
-- **Duplicate emails** are prevented via normalised email lookups.
-- **User suspension/block/deletion** automatically revokes all active sessions.
-- **Internal routes** are not yet protected by API keys (TODO for Phase 3/4).
+| Decision | Rationale |
+|----------|-----------|
+| Session tokens hashed with SHA-256 | Worker-compatible, no external deps |
+| Raw session token returned only at creation | One-time retrieval prevents leakage |
+| `session_token_hash` never exposed in responses | Explicit field mapping |
+| Duplicate email prevention via normalized lookup | Case-insensitive uniqueness |
+| Auto-revoke sessions on user suspend/block/delete | Immediate access termination |
+| Soft-delete for memberships | Audit trail preserved |
+| Internal routes have TODO for API key protection | Phase 4/5 will add service tokens |
+| No passwords stored yet | Phase 4+ will introduce password auth |
+| No stack traces in error responses | Production safety |
+| No secrets in audit metadata | Defense in depth |
 
 ---
 
-## Local Development
+## Validation Rules
 
-### Prerequisites
+| Field | Rule |
+|-------|------|
+| `appId` | Lowercase snake_case (`[a-z][a-z0-9_]*`) |
+| `tenantKey` | Lowercase, letters/digits/hyphens (`[a-z][a-z0-9-]*`) |
+| `roleKey` | Lowercase snake_case (`[a-z][a-z0-9_]*`) |
+| `metadata` | Valid JSON object or null |
+| `limit` | Default 25, max 100 |
+| `allowedOrigins` | Must be valid `http://` or `https://` URLs |
 
-- Node.js 18+
-- npm or pnpm
-- Wrangler CLI (`npm install -g wrangler`)
+---
 
-### Install
+## Development
 
 ```bash
+# Install dependencies
 npm install
-```
 
-### Start Dev Server
+# Run locally
+npx wrangler dev
 
-```bash
-npm run dev
-# or
-wrangler dev
-```
+# Run tests
+npx vitest run
 
-The API will be available at `http://localhost:8787`.
+# Type check
+npx tsc --noEmit
 
-### Type Check
-
-```bash
-npm run typecheck
-```
-
-### Run Tests
-
-```bash
-npm test
+# Deploy
+npx wrangler deploy
 ```
 
 ---
 
-## D1 Database
-
-### Create the Database (First Time)
+## Migrations
 
 ```bash
-wrangler d1 create ids-db
+# Apply all migrations
+npx wrangler d1 migrations apply ids-db
+
+# List migrations
+npx wrangler d1 migrations list ids-db
 ```
 
-Copy the `database_id` from the output into `wrangler.toml`.
-
-### Run Migrations Locally
-
-```bash
-npm run db:migrate:local
-```
-
-### Run Migrations on Cloudflare
-
-```bash
-npm run db:migrate:remote
-```
-
-### Tables
-
-| Table | Phase | Purpose |
-|---|---|---|
-| `ids_service_metadata` | 1 | Key/value service configuration |
-| `ids_apps` | 1 | Platform app registry |
-| `ids_audit_logs` | 1 | Audit trail for identity events |
-| `ids_users` | 2 | Master user records |
-| `ids_user_emails` | 2 | User email addresses |
-| `ids_user_phones` | 2 | User phone numbers |
-| `ids_sessions` | 2 | User sessions (hashed tokens) |
-| `ids_login_events` | 2 | Login / session lifecycle events |
-
----
-
-## Deployment
-
-```bash
-npm run deploy
-# or
-wrangler deploy
-```
-
-The worker deploys as `ids-api` on Cloudflare Workers.
-
----
-
-## Future Phases
-
-| Phase | Focus |
-|---|---|
-| ~~Phase 1~~ | ~~Foundation — API skeleton, health, apps, D1~~ ✅ |
-| ~~Phase 2~~ | ~~Core identity — users, emails, phones, sessions, audit~~ ✅ |
-| **Phase 3** | Authentication — login flows, password auth, email verification |
-| **Phase 4** | OAuth / SSO — external identity providers |
-| **Phase 5** | RBAC — roles, permissions, policies |
-| **Phase 6** | Multi-tenancy — businesses, projects, teams |
-| **Phase 7** | Trust & security — MFA, trust scoring, rate limiting |
-| **Phase 8** | Service tokens — app-to-app auth, API keys |
-| **Phase 9** | Admin UI — user management dashboard |
-
----
-
-## License
-
-Private — Beqakid Platform
+| Migration | Description |
+|-----------|-------------|
+| `0001_initial_ids_foundation.sql` | Service metadata, app registry, audit logs |
+| `0002_core_identity_sessions.sql` | Users, emails, phones, sessions, login events |
+| `0003_app_registry_tenants_memberships.sql` | Tenants, memberships, app access logs, app upgrades |
