@@ -4,7 +4,7 @@ import {
   waitOnExecutionContext,
 } from "cloudflare:test";
 import { describe, it, expect, beforeAll } from "vitest";
-import { ensureMigrations, jsonRequest } from "./setup";
+import { ensureMigrations, serviceRequest } from "./setup";
 import app from "../src/index";
 import type { Env } from "../src/types/env";
 
@@ -16,7 +16,7 @@ beforeAll(async () => {
   await ensureMigrations();
 
   // Create user
-  const userReq = jsonRequest("/api/internal/users", "POST", {
+  const userReq = serviceRequest("/api/internal/users", "POST", {
     displayName: "Context User",
     email: "context-user@example.com",
   });
@@ -27,7 +27,7 @@ beforeAll(async () => {
   userId = userJson.data.user.id;
 
   // Create tenant
-  const tenantReq = jsonRequest("/api/internal/tenants", "POST", {
+  const tenantReq = serviceRequest("/api/internal/tenants", "POST", {
     appId: "command_center",
     tenantKey: "context-project",
     name: "Context Project",
@@ -40,7 +40,7 @@ beforeAll(async () => {
   tenantId = tenantJson.data.tenant.id;
 
   // Create membership
-  const memReq = jsonRequest("/api/internal/memberships", "POST", {
+  const memReq = serviceRequest("/api/internal/memberships", "POST", {
     userId,
     appId: "command_center",
     tenantId,
@@ -55,8 +55,8 @@ beforeAll(async () => {
 
 describe("GET /api/internal/context", () => {
   it("returns full user + app + tenant + membership context", async () => {
-    const req = new Request(
-      `http://localhost/api/internal/context?userId=${userId}&appId=command_center&tenantId=${tenantId}`
+    const req = serviceRequest(
+      `/api/internal/context?userId=${userId}&appId=command_center&tenantId=${tenantId}`
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -75,7 +75,7 @@ describe("GET /api/internal/context", () => {
   it("returns active false for inactive membership", async () => {
     // Suspend the membership
     await app.fetch(
-      jsonRequest(
+      serviceRequest(
         `/api/internal/memberships/${membershipId}/status`,
         "PATCH",
         { status: "suspended" }
@@ -84,8 +84,8 @@ describe("GET /api/internal/context", () => {
       createExecutionContext()
     );
 
-    const req = new Request(
-      `http://localhost/api/internal/context?userId=${userId}&appId=command_center&tenantId=${tenantId}`
+    const req = serviceRequest(
+      `/api/internal/context?userId=${userId}&appId=command_center&tenantId=${tenantId}`
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -96,7 +96,7 @@ describe("GET /api/internal/context", () => {
 
     // Reactivate
     await app.fetch(
-      jsonRequest(
+      serviceRequest(
         `/api/internal/memberships/${membershipId}/status`,
         "PATCH",
         { status: "active" }
@@ -109,7 +109,7 @@ describe("GET /api/internal/context", () => {
   it("returns active false for suspended tenant", async () => {
     // Suspend tenant
     await app.fetch(
-      jsonRequest(
+      serviceRequest(
         `/api/internal/tenants/${tenantId}/status`,
         "PATCH",
         { status: "suspended" }
@@ -118,8 +118,8 @@ describe("GET /api/internal/context", () => {
       createExecutionContext()
     );
 
-    const req = new Request(
-      `http://localhost/api/internal/context?userId=${userId}&appId=command_center&tenantId=${tenantId}`
+    const req = serviceRequest(
+      `/api/internal/context?userId=${userId}&appId=command_center&tenantId=${tenantId}`
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -130,7 +130,7 @@ describe("GET /api/internal/context", () => {
 
     // Reactivate
     await app.fetch(
-      jsonRequest(
+      serviceRequest(
         `/api/internal/tenants/${tenantId}/status`,
         "PATCH",
         { status: "active" }
@@ -143,7 +143,7 @@ describe("GET /api/internal/context", () => {
   it("returns active false for suspended user", async () => {
     // Suspend user
     await app.fetch(
-      jsonRequest(
+      serviceRequest(
         `/api/internal/users/${userId}/status`,
         "PATCH",
         { status: "suspended" }
@@ -152,8 +152,8 @@ describe("GET /api/internal/context", () => {
       createExecutionContext()
     );
 
-    const req = new Request(
-      `http://localhost/api/internal/context?userId=${userId}&appId=command_center&tenantId=${tenantId}`
+    const req = serviceRequest(
+      `/api/internal/context?userId=${userId}&appId=command_center&tenantId=${tenantId}`
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -164,7 +164,7 @@ describe("GET /api/internal/context", () => {
 
     // Reactivate
     await app.fetch(
-      jsonRequest(
+      serviceRequest(
         `/api/internal/users/${userId}/status`,
         "PATCH",
         { status: "active" }
@@ -176,7 +176,7 @@ describe("GET /api/internal/context", () => {
 
   it("returns active false for missing membership", async () => {
     // Create user with no membership
-    const noMemReq = jsonRequest("/api/internal/users", "POST", {
+    const noMemReq = serviceRequest("/api/internal/users", "POST", {
       displayName: "No Membership User",
       email: "no-membership@example.com",
     });
@@ -186,8 +186,8 @@ describe("GET /api/internal/context", () => {
     const noMemJson = (await noMemRes.json()) as any;
     const noMemUserId = noMemJson.data.user.id;
 
-    const req = new Request(
-      `http://localhost/api/internal/context?userId=${noMemUserId}&appId=command_center&tenantId=${tenantId}`
+    const req = serviceRequest(
+      `/api/internal/context?userId=${noMemUserId}&appId=command_center&tenantId=${tenantId}`
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -221,8 +221,8 @@ describe("GET /api/internal/context", () => {
   });
 
   it("requires all query params", async () => {
-    const req = new Request(
-      "http://localhost/api/internal/context?userId=x&appId=y"
+    const req = serviceRequest(
+      "/api/internal/context?userId=x&appId=y"
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);

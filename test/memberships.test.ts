@@ -4,7 +4,7 @@ import {
   waitOnExecutionContext,
 } from "cloudflare:test";
 import { describe, it, expect, beforeAll } from "vitest";
-import { ensureMigrations, jsonRequest } from "./setup";
+import { ensureMigrations, serviceRequest } from "./setup";
 import app from "../src/index";
 import type { Env } from "../src/types/env";
 
@@ -16,7 +16,7 @@ beforeAll(async () => {
   await ensureMigrations();
 
   // Create user
-  const userReq = jsonRequest("/api/internal/users", "POST", {
+  const userReq = serviceRequest("/api/internal/users", "POST", {
     displayName: "Membership User",
     email: "membership-user@example.com",
   });
@@ -27,7 +27,7 @@ beforeAll(async () => {
   userId = userJson.data.user.id;
 
   // Create tenant
-  const tenantReq = jsonRequest("/api/internal/tenants", "POST", {
+  const tenantReq = serviceRequest("/api/internal/tenants", "POST", {
     appId: "kai",
     tenantKey: "test-project",
     name: "Test Project",
@@ -43,7 +43,7 @@ beforeAll(async () => {
 
 describe("POST /api/internal/memberships", () => {
   it("creates a membership", async () => {
-    const req = jsonRequest("/api/internal/memberships", "POST", {
+    const req = serviceRequest("/api/internal/memberships", "POST", {
       userId,
       appId: "kai",
       tenantId,
@@ -67,7 +67,7 @@ describe("POST /api/internal/memberships", () => {
   });
 
   it("rejects non-existent user", async () => {
-    const req = jsonRequest("/api/internal/memberships", "POST", {
+    const req = serviceRequest("/api/internal/memberships", "POST", {
       userId: "nonexistent-user",
       appId: "kai",
       tenantId,
@@ -81,7 +81,7 @@ describe("POST /api/internal/memberships", () => {
   });
 
   it("rejects non-existent app", async () => {
-    const req = jsonRequest("/api/internal/memberships", "POST", {
+    const req = serviceRequest("/api/internal/memberships", "POST", {
       userId,
       appId: "nonexistent_app",
       tenantId,
@@ -95,7 +95,7 @@ describe("POST /api/internal/memberships", () => {
   });
 
   it("rejects non-existent tenant", async () => {
-    const req = jsonRequest("/api/internal/memberships", "POST", {
+    const req = serviceRequest("/api/internal/memberships", "POST", {
       userId,
       appId: "kai",
       tenantId: "nonexistent-tenant",
@@ -110,7 +110,7 @@ describe("POST /api/internal/memberships", () => {
 
   it("rejects tenant that does not belong to app", async () => {
     // Create a tenant in viliniu
-    const tReq = jsonRequest("/api/internal/tenants", "POST", {
+    const tReq = serviceRequest("/api/internal/tenants", "POST", {
       appId: "viliniu",
       tenantKey: "wrong-app-tenant",
       name: "Wrong App",
@@ -123,7 +123,7 @@ describe("POST /api/internal/memberships", () => {
     const wrongTenantId = tJson.data.tenant.id;
 
     // Try to create membership with kai but viliniu tenant
-    const req = jsonRequest("/api/internal/memberships", "POST", {
+    const req = serviceRequest("/api/internal/memberships", "POST", {
       userId,
       appId: "kai",
       tenantId: wrongTenantId,
@@ -139,7 +139,7 @@ describe("POST /api/internal/memberships", () => {
   });
 
   it("rejects duplicate user + tenant + role_key", async () => {
-    const req = jsonRequest("/api/internal/memberships", "POST", {
+    const req = serviceRequest("/api/internal/memberships", "POST", {
       userId,
       appId: "kai",
       tenantId,
@@ -168,8 +168,8 @@ describe("POST /api/internal/memberships", () => {
 
 describe("GET /api/internal/users/:id/memberships", () => {
   it("lists memberships for a user", async () => {
-    const req = new Request(
-      `http://localhost/api/internal/users/${userId}/memberships`
+    const req = serviceRequest(
+      `/api/internal/users/${userId}/memberships`
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -184,8 +184,8 @@ describe("GET /api/internal/users/:id/memberships", () => {
 
 describe("GET /api/internal/tenants/:id/memberships", () => {
   it("lists memberships for a tenant", async () => {
-    const req = new Request(
-      `http://localhost/api/internal/tenants/${tenantId}/memberships`
+    const req = serviceRequest(
+      `/api/internal/tenants/${tenantId}/memberships`
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -199,8 +199,8 @@ describe("GET /api/internal/tenants/:id/memberships", () => {
 
 describe("GET /api/internal/apps/:appId/memberships", () => {
   it("lists memberships for an app", async () => {
-    const req = new Request(
-      "http://localhost/api/internal/apps/kai/memberships"
+    const req = serviceRequest(
+      "/api/internal/apps/kai/memberships"
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -214,7 +214,7 @@ describe("GET /api/internal/apps/:appId/memberships", () => {
 
 describe("PATCH /api/internal/memberships/:id/status", () => {
   it("updates membership status", async () => {
-    const req = jsonRequest(
+    const req = serviceRequest(
       `/api/internal/memberships/${membershipId}/status`,
       "PATCH",
       { status: "suspended" }
@@ -233,7 +233,7 @@ describe("POST /api/internal/memberships/:id/remove", () => {
   it("marks membership as removed (not hard delete)", async () => {
     // First reactivate
     await app.fetch(
-      jsonRequest(
+      serviceRequest(
         `/api/internal/memberships/${membershipId}/status`,
         "PATCH",
         { status: "active" }
@@ -242,7 +242,7 @@ describe("POST /api/internal/memberships/:id/remove", () => {
       createExecutionContext()
     );
 
-    const req = jsonRequest(
+    const req = serviceRequest(
       `/api/internal/memberships/${membershipId}/remove`,
       "POST"
     );

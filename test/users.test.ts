@@ -5,7 +5,7 @@ import {
 } from "cloudflare:test";
 import { describe, it, expect, beforeAll } from "vitest";
 import app from "../src/index";
-import { ensureMigrations, jsonRequest } from "./setup";
+import { ensureMigrations, serviceRequest } from "./setup";
 
 beforeAll(async () => {
   await ensureMigrations();
@@ -40,7 +40,7 @@ describe("GET /api/users/me", () => {
 
 describe("POST /api/internal/users", () => {
   it("creates a user", async () => {
-    const req = jsonRequest("/api/internal/users", "POST", {
+    const req = serviceRequest("/api/internal/users", "POST", {
       displayName: "Test User",
       email: "test-create@example.com",
       phone: "+1 555 000 1111",
@@ -63,7 +63,7 @@ describe("POST /api/internal/users", () => {
 
   it("rejects duplicate email", async () => {
     // First create
-    const req1 = jsonRequest("/api/internal/users", "POST", {
+    const req1 = serviceRequest("/api/internal/users", "POST", {
       displayName: "First",
       email: "duplicate@example.com",
     });
@@ -72,7 +72,7 @@ describe("POST /api/internal/users", () => {
     await waitOnExecutionContext(ctx1);
 
     // Second create with same email
-    const req2 = jsonRequest("/api/internal/users", "POST", {
+    const req2 = serviceRequest("/api/internal/users", "POST", {
       displayName: "Second",
       email: "duplicate@example.com",
     });
@@ -87,7 +87,7 @@ describe("POST /api/internal/users", () => {
   });
 
   it("rejects invalid email", async () => {
-    const req = jsonRequest("/api/internal/users", "POST", {
+    const req = serviceRequest("/api/internal/users", "POST", {
       displayName: "Bad Email",
       email: "not-an-email",
     });
@@ -105,7 +105,7 @@ describe("POST /api/internal/users", () => {
 describe("GET /api/internal/users/:id", () => {
   it("returns safe user profile", async () => {
     // Create a user first
-    const createReq = jsonRequest("/api/internal/users", "POST", {
+    const createReq = serviceRequest("/api/internal/users", "POST", {
       displayName: "Get Test",
       email: "gettest@example.com",
     });
@@ -116,7 +116,7 @@ describe("GET /api/internal/users/:id", () => {
     const userId = created.data.user.id;
 
     // Get the user
-    const req = new Request(`http://localhost/api/internal/users/${userId}`);
+    const req = serviceRequest(`/api/internal/users/${userId}`);
     const ctx2 = createExecutionContext();
     const res = await app.fetch(req, env, ctx2);
     await waitOnExecutionContext(ctx2);
@@ -132,8 +132,8 @@ describe("GET /api/internal/users/:id", () => {
   });
 
   it("returns 404 for unknown user", async () => {
-    const req = new Request(
-      "http://localhost/api/internal/users/nonexistent-id"
+    const req = serviceRequest(
+      "/api/internal/users/nonexistent-id"
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -145,8 +145,8 @@ describe("GET /api/internal/users/:id", () => {
 
 describe("GET /api/internal/users", () => {
   it("returns paginated list", async () => {
-    const req = new Request(
-      "http://localhost/api/internal/users?limit=5&offset=0"
+    const req = serviceRequest(
+      "/api/internal/users?limit=5&offset=0"
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -165,7 +165,7 @@ describe("GET /api/internal/users", () => {
 describe("PATCH /api/internal/users/:id/status", () => {
   it("updates status", async () => {
     // Create user
-    const createReq = jsonRequest("/api/internal/users", "POST", {
+    const createReq = serviceRequest("/api/internal/users", "POST", {
       displayName: "Status Test",
       email: "statustest@example.com",
     });
@@ -175,7 +175,7 @@ describe("PATCH /api/internal/users/:id/status", () => {
     const userId = ((await createRes.json()) as any).data.user.id;
 
     // Update status
-    const req = jsonRequest(
+    const req = serviceRequest(
       `/api/internal/users/${userId}/status`,
       "PATCH",
       { status: "pending_verification" }
@@ -191,7 +191,7 @@ describe("PATCH /api/internal/users/:id/status", () => {
 
   it("rejects invalid status", async () => {
     // Create user
-    const createReq = jsonRequest("/api/internal/users", "POST", {
+    const createReq = serviceRequest("/api/internal/users", "POST", {
       displayName: "Invalid Status",
       email: "invalidstatus@example.com",
     });
@@ -200,7 +200,7 @@ describe("PATCH /api/internal/users/:id/status", () => {
     await waitOnExecutionContext(ctx1);
     const userId = ((await createRes.json()) as any).data.user.id;
 
-    const req = jsonRequest(
+    const req = serviceRequest(
       `/api/internal/users/${userId}/status`,
       "PATCH",
       { status: "banana" }
@@ -216,7 +216,7 @@ describe("PATCH /api/internal/users/:id/status", () => {
 
   it("revokes sessions when suspended", async () => {
     // Create user
-    const createReq = jsonRequest("/api/internal/users", "POST", {
+    const createReq = serviceRequest("/api/internal/users", "POST", {
       displayName: "Suspend Test",
       email: "suspendtest@example.com",
     });
@@ -226,7 +226,7 @@ describe("PATCH /api/internal/users/:id/status", () => {
     const userId = ((await createRes.json()) as any).data.user.id;
 
     // Create a session
-    const sessReq = jsonRequest("/api/internal/sessions", "POST", {
+    const sessReq = serviceRequest("/api/internal/sessions", "POST", {
       userId,
       appId: "kai",
       ttlSeconds: 3600,
@@ -236,7 +236,7 @@ describe("PATCH /api/internal/users/:id/status", () => {
     await waitOnExecutionContext(ctx2);
 
     // Suspend the user
-    const suspendReq = jsonRequest(
+    const suspendReq = serviceRequest(
       `/api/internal/users/${userId}/status`,
       "PATCH",
       { status: "suspended" }

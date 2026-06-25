@@ -5,7 +5,7 @@ import {
 } from "cloudflare:test";
 import { describe, it, expect, beforeAll } from "vitest";
 import app from "../src/index";
-import { ensureMigrations, jsonRequest } from "./setup";
+import { ensureMigrations, serviceRequest } from "./setup";
 
 let testUserId: string;
 
@@ -13,7 +13,7 @@ beforeAll(async () => {
   await ensureMigrations();
 
   // Create a test user for session tests
-  const req = jsonRequest("/api/internal/users", "POST", {
+  const req = serviceRequest("/api/internal/users", "POST", {
     displayName: "Session Test User",
     email: "session-test@example.com",
   });
@@ -26,7 +26,7 @@ beforeAll(async () => {
 
 describe("POST /api/internal/sessions", () => {
   it("creates a session and returns token only once", async () => {
-    const req = jsonRequest("/api/internal/sessions", "POST", {
+    const req = serviceRequest("/api/internal/sessions", "POST", {
       userId: testUserId,
       appId: "command_center",
       ttlSeconds: 7200,
@@ -49,7 +49,7 @@ describe("POST /api/internal/sessions", () => {
   });
 
   it("stores hash only — not raw token", async () => {
-    const req = jsonRequest("/api/internal/sessions", "POST", {
+    const req = serviceRequest("/api/internal/sessions", "POST", {
       userId: testUserId,
       appId: "kai",
     });
@@ -82,7 +82,7 @@ describe("POST /api/internal/sessions", () => {
 describe("GET /api/internal/users/:id/sessions", () => {
   it("lists sessions without token hash", async () => {
     // Create a session first so there's something to list
-    const createReq = jsonRequest("/api/internal/sessions", "POST", {
+    const createReq = serviceRequest("/api/internal/sessions", "POST", {
       userId: testUserId,
       appId: "viliniu",
     });
@@ -90,8 +90,8 @@ describe("GET /api/internal/users/:id/sessions", () => {
     await app.fetch(createReq, env, ctx1);
     await waitOnExecutionContext(ctx1);
 
-    const req = new Request(
-      `http://localhost/api/internal/users/${testUserId}/sessions`
+    const req = serviceRequest(
+      `/api/internal/users/${testUserId}/sessions`
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -114,7 +114,7 @@ describe("GET /api/internal/users/:id/sessions", () => {
 describe("POST /api/internal/sessions/:id/revoke", () => {
   it("revokes a session", async () => {
     // Create session
-    const createReq = jsonRequest("/api/internal/sessions", "POST", {
+    const createReq = serviceRequest("/api/internal/sessions", "POST", {
       userId: testUserId,
       appId: "carehia",
     });
@@ -124,7 +124,7 @@ describe("POST /api/internal/sessions/:id/revoke", () => {
     const sessionId = ((await createRes.json()) as any).data.session.id;
 
     // Revoke it
-    const revokeReq = jsonRequest(
+    const revokeReq = serviceRequest(
       `/api/internal/sessions/${sessionId}/revoke`,
       "POST"
     );
@@ -142,7 +142,7 @@ describe("POST /api/internal/sessions/:id/revoke", () => {
 describe("POST /api/internal/users/:id/sessions/revoke-all", () => {
   it("revokes all active sessions for user", async () => {
     // Create a fresh user with multiple sessions
-    const userReq = jsonRequest("/api/internal/users", "POST", {
+    const userReq = serviceRequest("/api/internal/users", "POST", {
       displayName: "Revoke All Test",
       email: "revokeall@example.com",
     });
@@ -153,7 +153,7 @@ describe("POST /api/internal/users/:id/sessions/revoke-all", () => {
 
     // Create two sessions
     for (const appId of ["kai", "viliniu"]) {
-      const req = jsonRequest("/api/internal/sessions", "POST", {
+      const req = serviceRequest("/api/internal/sessions", "POST", {
         userId,
         appId,
       });
@@ -163,7 +163,7 @@ describe("POST /api/internal/users/:id/sessions/revoke-all", () => {
     }
 
     // Revoke all
-    const revokeReq = jsonRequest(
+    const revokeReq = serviceRequest(
       `/api/internal/users/${userId}/sessions/revoke-all`,
       "POST"
     );
@@ -176,8 +176,8 @@ describe("POST /api/internal/users/:id/sessions/revoke-all", () => {
     expect(json.data.sessionsRevoked).toBe(2);
 
     // Verify all sessions are revoked
-    const listReq = new Request(
-      `http://localhost/api/internal/users/${userId}/sessions`
+    const listReq = serviceRequest(
+      `/api/internal/users/${userId}/sessions`
     );
     const ctx3 = createExecutionContext();
     const listRes = await app.fetch(listReq, env, ctx3);

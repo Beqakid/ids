@@ -14,7 +14,7 @@ import {
 } from "vitest";
 import { SELF, fetchMock } from "cloudflare:test";
 import { env } from "cloudflare:test";
-import { ensureMigrations, jsonRequest } from "./setup";
+import { ensureMigrations, serviceRequest } from "./setup";
 
 // ── Test Data ────────────────────────────────────────────────
 
@@ -26,7 +26,7 @@ async function createTestUser(
   body: Record<string, unknown> = {}
 ): Promise<string> {
   const res = await SELF.fetch(
-    jsonRequest("/api/internal/users", "POST", {
+    serviceRequest("/api/internal/users", "POST", {
       displayName: "Verification Test User",
       email: `verif-${crypto.randomUUID()}@test.com`,
       ...body,
@@ -119,7 +119,7 @@ beforeAll(async () => {
   testUserId = await createTestUser();
   suspendedUserId = await createTestUser();
   await SELF.fetch(
-    jsonRequest(`/api/internal/users/${suspendedUserId}/status`, "PATCH", {
+    serviceRequest(`/api/internal/users/${suspendedUserId}/status`, "PATCH", {
       status: "suspended",
     })
   );
@@ -146,7 +146,7 @@ describe("Phase 4B: Configuration", () => {
     ];
 
     for (const path of endpoints) {
-      const res = await SELF.fetch(jsonRequest(path));
+      const res = await SELF.fetch(serviceRequest(path));
       const text = await res.text();
       expect(text).not.toContain("TWILIO_ACCOUNT_SID");
       expect(text).not.toContain("TWILIO_AUTH_TOKEN");
@@ -163,7 +163,7 @@ describe("Phase 4B: Start Phone Verification", () => {
     mockTwilioStartPending();
 
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: testUserId,
         phone: TEST_PHONE,
       })
@@ -185,7 +185,7 @@ describe("Phase 4B: Start Phone Verification", () => {
 
   it("rejects invalid user", async () => {
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: "nonexistent-user-id",
         phone: TEST_PHONE,
       })
@@ -197,7 +197,7 @@ describe("Phase 4B: Start Phone Verification", () => {
 
   it("rejects suspended user", async () => {
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: suspendedUserId,
         phone: TEST_PHONE,
       })
@@ -209,7 +209,7 @@ describe("Phase 4B: Start Phone Verification", () => {
 
   it("rejects missing phone", async () => {
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: testUserId,
       })
     );
@@ -219,7 +219,7 @@ describe("Phase 4B: Start Phone Verification", () => {
 
   it("rejects invalid phone", async () => {
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: testUserId,
         phone: "abc",
       })
@@ -231,7 +231,7 @@ describe("Phase 4B: Start Phone Verification", () => {
 
   it("rejects unsupported channel", async () => {
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: testUserId,
         phone: TEST_PHONE,
         channel: "pigeon",
@@ -248,7 +248,7 @@ describe("Phase 4B: Start Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: newUserId,
         phone: newPhone,
       })
@@ -271,7 +271,7 @@ describe("Phase 4B: Start Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: newUserId,
         phone: "+15551112222",
       })
@@ -290,7 +290,7 @@ describe("Phase 4B: Start Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: newUserId,
         phone: "+15553334444",
       })
@@ -314,7 +314,7 @@ describe("Phase 4B: Start Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: newUserId,
         phone: "+15554445555",
       })
@@ -338,7 +338,7 @@ describe("Phase 4B: Start Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: newUserId,
         phone: "+15556667777",
       })
@@ -363,7 +363,7 @@ describe("Phase 4B: Start Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: newUserId,
         phone: "+15557778888",
       })
@@ -389,7 +389,7 @@ describe("Phase 4B: Start Phone Verification", () => {
     mockTwilioStartError(500);
 
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: testUserId,
         phone: TEST_PHONE,
       })
@@ -411,7 +411,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId: checkUserId,
         phone: checkPhone,
       })
@@ -419,7 +419,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioCheckApproved(checkPhone);
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/check", "POST", {
+      serviceRequest("/api/internal/verifications/phone/check", "POST", {
         userId: checkUserId,
         phone: checkPhone,
         code: "123456",
@@ -438,7 +438,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId,
         phone,
       })
@@ -446,7 +446,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioCheckApproved(phone);
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/check", "POST", {
+      serviceRequest("/api/internal/verifications/phone/check", "POST", {
         userId,
         phone,
         code: "123456",
@@ -473,7 +473,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId,
         phone,
       })
@@ -481,7 +481,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioCheckApproved(phone);
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/check", "POST", {
+      serviceRequest("/api/internal/verifications/phone/check", "POST", {
         userId,
         phone,
         code: "123456",
@@ -501,7 +501,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId,
         phone,
       })
@@ -509,7 +509,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioCheckFailed("failed");
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/check", "POST", {
+      serviceRequest("/api/internal/verifications/phone/check", "POST", {
         userId,
         phone,
         code: "wrong-code",
@@ -534,7 +534,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId,
         phone,
       })
@@ -542,7 +542,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioCheckFailed("expired");
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/check", "POST", {
+      serviceRequest("/api/internal/verifications/phone/check", "POST", {
         userId,
         phone,
         code: "123456",
@@ -559,7 +559,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId,
         phone,
       })
@@ -567,7 +567,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioCheckFailed("max_attempts_reached");
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/check", "POST", {
+      serviceRequest("/api/internal/verifications/phone/check", "POST", {
         userId,
         phone,
         code: "123456",
@@ -581,7 +581,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
   it("rejects missing code", async () => {
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/check", "POST", {
+      serviceRequest("/api/internal/verifications/phone/check", "POST", {
         userId: testUserId,
         phone: TEST_PHONE,
       })
@@ -597,7 +597,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId,
         phone,
       })
@@ -605,7 +605,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioCheckApproved(phone);
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/check", "POST", {
+      serviceRequest("/api/internal/verifications/phone/check", "POST", {
         userId,
         phone,
         code,
@@ -644,7 +644,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId,
         phone,
       })
@@ -652,7 +652,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioCheckApproved(phone);
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/check", "POST", {
+      serviceRequest("/api/internal/verifications/phone/check", "POST", {
         userId,
         phone,
         code: "123456",
@@ -677,7 +677,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId,
         phone,
       })
@@ -685,7 +685,7 @@ describe("Phase 4B: Check Phone Verification", () => {
 
     mockTwilioCheckApproved(phone);
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/check", "POST", {
+      serviceRequest("/api/internal/verifications/phone/check", "POST", {
         userId,
         phone,
         code: "123456",
@@ -712,7 +712,7 @@ describe("Phase 4B: Status Endpoints", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId,
         phone,
       })
@@ -720,7 +720,7 @@ describe("Phase 4B: Status Endpoints", () => {
 
     mockTwilioCheckApproved(phone);
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/check", "POST", {
+      serviceRequest("/api/internal/verifications/phone/check", "POST", {
         userId,
         phone,
         code: "123456",
@@ -728,7 +728,7 @@ describe("Phase 4B: Status Endpoints", () => {
     );
 
     const res = await SELF.fetch(
-      jsonRequest(
+      serviceRequest(
         `/api/internal/users/${userId}/phone-verifications/status?phone=${encodeURIComponent(phone)}`
       )
     );
@@ -742,7 +742,7 @@ describe("Phase 4B: Status Endpoints", () => {
   it("returns 404 for non-existent phone", async () => {
     const userId = await createTestUser();
     const res = await SELF.fetch(
-      jsonRequest(
+      serviceRequest(
         `/api/internal/users/${userId}/phone-verifications/status?phone=${encodeURIComponent("+19999999999")}`
       )
     );
@@ -754,7 +754,7 @@ describe("Phase 4B: Status Endpoints", () => {
   it("returns 400 when phone query param missing", async () => {
     const userId = await createTestUser();
     const res = await SELF.fetch(
-      jsonRequest(`/api/internal/users/${userId}/phone-verifications/status`)
+      serviceRequest(`/api/internal/users/${userId}/phone-verifications/status`)
     );
     const json = (await res.json()) as any;
     expect(json.ok).toBe(false);
@@ -767,14 +767,14 @@ describe("Phase 4B: Status Endpoints", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId,
         phone,
       })
     );
 
     const res = await SELF.fetch(
-      jsonRequest(`/api/internal/users/${userId}/phone-verifications`)
+      serviceRequest(`/api/internal/users/${userId}/phone-verifications`)
     );
     const json = (await res.json()) as any;
     expect(json.ok).toBe(true);
@@ -794,14 +794,14 @@ describe("Phase 4B: Status Endpoints", () => {
 
     mockTwilioStartPending();
     await SELF.fetch(
-      jsonRequest("/api/internal/verifications/phone/start", "POST", {
+      serviceRequest("/api/internal/verifications/phone/start", "POST", {
         userId,
         phone,
       })
     );
 
     const res = await SELF.fetch(
-      jsonRequest(`/api/internal/users/${userId}/phone-verifications`)
+      serviceRequest(`/api/internal/users/${userId}/phone-verifications`)
     );
     const text = await res.text();
     expect(text).not.toContain("TWILIO_AUTH_TOKEN");
@@ -810,7 +810,7 @@ describe("Phase 4B: Status Endpoints", () => {
 
   it("returns 404 for non-existent user", async () => {
     const res = await SELF.fetch(
-      jsonRequest(`/api/internal/users/fake-user-id/phone-verifications`)
+      serviceRequest(`/api/internal/users/fake-user-id/phone-verifications`)
     );
     const json = (await res.json()) as any;
     expect(json.ok).toBe(false);
@@ -822,14 +822,14 @@ describe("Phase 4B: Status Endpoints", () => {
 
 describe("Phase 4B: Regression", () => {
   it("Phase 1 health endpoint still works", async () => {
-    const res = await SELF.fetch(jsonRequest("/api/health"));
+    const res = await SELF.fetch(serviceRequest("/api/health"));
     const json = (await res.json()) as any;
     expect(json.ok).toBe(true);
     expect(json.data.service).toBe("ids");
   });
 
   it("Phase 1 version endpoint still works", async () => {
-    const res = await SELF.fetch(jsonRequest("/api/version"));
+    const res = await SELF.fetch(serviceRequest("/api/version"));
     const json = (await res.json()) as any;
     expect(json.ok).toBe(true);
     expect(json.data.version).toBeDefined();
@@ -837,7 +837,7 @@ describe("Phase 4B: Regression", () => {
 
   it("Phase 2 user creation still works", async () => {
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/users", "POST", {
+      serviceRequest("/api/internal/users", "POST", {
         displayName: "Regression Test",
         email: `regression-${crypto.randomUUID()}@test.com`,
       })
@@ -850,7 +850,7 @@ describe("Phase 4B: Regression", () => {
   it("Phase 2 sessions work", async () => {
     const userId = await createTestUser();
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/sessions", "POST", {
+      serviceRequest("/api/internal/sessions", "POST", {
         userId,
       })
     );
@@ -863,14 +863,14 @@ describe("Phase 4B: Regression", () => {
 
   it("Phase 4 roles list still works", async () => {
     const res = await SELF.fetch(
-      jsonRequest("/api/internal/roles?appId=command_center")
+      serviceRequest("/api/internal/roles?appId=command_center")
     );
     const json = (await res.json()) as any;
     expect(json.ok).toBe(true);
   });
 
   it("GET /api/users/me still returns authenticated false", async () => {
-    const res = await SELF.fetch(jsonRequest("/api/users/me"));
+    const res = await SELF.fetch(serviceRequest("/api/users/me"));
     const json = (await res.json()) as any;
     expect(json.ok).toBe(true);
     expect(json.data.authenticated).toBe(false);
