@@ -158,3 +158,54 @@ export function isValidRiskLevel(value: string): boolean {
 export function isValidPermissionEffect(value: string): boolean {
   return ["allow", "deny"].includes(value);
 }
+
+// ── Phase 4B additions ───────────────────────────────────────
+
+/** Phone verification channel must be sms, call, or whatsapp. */
+export function isValidPhoneVerificationChannel(value: string): boolean {
+  return ["sms", "call", "whatsapp"].includes(value);
+}
+
+/** Verification event status. */
+export function isValidVerificationStatus(value: string): boolean {
+  return [
+    "pending",
+    "approved",
+    "rejected",
+    "failed",
+    "expired",
+    "canceled",
+    "max_attempts_reached",
+  ].includes(value);
+}
+
+/**
+ * Basic E.164-style phone check.
+ * Accepts common formats: +15555555555, 15555555555, (555) 555-5555, etc.
+ * Rejects obviously invalid strings (too short, letters, etc.).
+ */
+export function isLikelyE164Phone(value: string): boolean {
+  // Strip common formatting
+  const stripped = value.replace(/[\s\-\(\)\.]/g, "");
+  // Must be mostly digits, optionally starting with +
+  if (!/^\+?\d{7,15}$/.test(stripped)) return false;
+  return true;
+}
+
+/**
+ * Normalize a phone number to E.164-style format (with + prefix).
+ * Uses the raw input and ensures + prefix for Twilio API calls.
+ */
+export function normalizePhoneE164(phone: string): string {
+  const stripped = phone.replace(/[\s\-\(\)\.]/g, "").trim();
+  if (stripped.startsWith("+")) return stripped;
+  return `+${stripped}`;
+}
+
+/** Require a non-empty code string. */
+export function requireCode(value: unknown): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new ValidationError("A valid verification code is required.");
+  }
+  return value.trim();
+}

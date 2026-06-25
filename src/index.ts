@@ -19,6 +19,8 @@ import internalRolesRoutes from "./routes/internalRoles";
 import internalPermissionsRoutes from "./routes/internalPermissions";
 import internalPermissionChecksRoutes from "./routes/internalPermissionChecks";
 import internalUserPermissionsRoutes from "./routes/internalUserPermissions";
+import internalVerificationsRoutes from "./routes/internalVerifications";
+import { userPhoneVerificationRoutes } from "./routes/internalVerifications";
 
 const app = new Hono<HonoEnv>();
 
@@ -54,6 +56,10 @@ api.route("/internal/roles", internalRolesRoutes);
 api.route("/internal/permissions", internalPermissionsRoutes);
 api.route("/internal/permission-checks", internalPermissionChecksRoutes);
 api.route("/internal/users", internalUserPermissionsRoutes);
+
+// Internal routes (Phase 4B)
+api.route("/internal/verifications", internalVerificationsRoutes);
+api.route("/internal/users", userPhoneVerificationRoutes);
 
 app.route("/api", api);
 
