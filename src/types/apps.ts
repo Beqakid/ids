@@ -49,7 +49,10 @@ export type AppAccessEventType =
   | "role_lookup"
   | "permission_lookup"
   | "permission_check"
-  | "effective_permissions_lookup";
+  | "effective_permissions_lookup"
+  | "phone_verification_started"
+  | "phone_verification_checked"
+  | "phone_verification_status_lookup";
 
 export const APP_ACCESS_EVENT_TYPES: readonly AppAccessEventType[] = [
   "app_lookup",
@@ -63,6 +66,9 @@ export const APP_ACCESS_EVENT_TYPES: readonly AppAccessEventType[] = [
   "permission_lookup",
   "permission_check",
   "effective_permissions_lookup",
+  "phone_verification_started",
+  "phone_verification_checked",
+  "phone_verification_status_lookup",
 ] as const;
 
 // ── App ──────────────────────────────────────────────────────
