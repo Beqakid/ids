@@ -704,19 +704,118 @@ UPDATE ids_service_metadata
   WHERE key = 'phase';
 `;
 
+const MIGRATION_5 = `
+CREATE TABLE IF NOT EXISTS ids_service_clients (
+  id              TEXT PRIMARY KEY,
+  client_id       TEXT UNIQUE NOT NULL,
+  name            TEXT NOT NULL,
+  app_id          TEXT,
+  tenant_id       TEXT,
+  status          TEXT NOT NULL DEFAULT 'active',
+  scopes          TEXT,
+  allowed_origins TEXT,
+  allowed_ips     TEXT,
+  created_at      TEXT NOT NULL,
+  updated_at      TEXT NOT NULL,
+  last_used_at    TEXT,
+  metadata        TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_ids_service_clients_client_id ON ids_service_clients (client_id);
+CREATE INDEX IF NOT EXISTS idx_ids_service_clients_app_id ON ids_service_clients (app_id);
+CREATE INDEX IF NOT EXISTS idx_ids_service_clients_status ON ids_service_clients (status);
+
+CREATE TABLE IF NOT EXISTS ids_service_api_keys (
+  id                  TEXT PRIMARY KEY,
+  service_client_id   TEXT NOT NULL,
+  key_prefix          TEXT NOT NULL,
+  key_hash            TEXT NOT NULL,
+  status              TEXT NOT NULL DEFAULT 'active',
+  created_at          TEXT NOT NULL,
+  updated_at          TEXT NOT NULL,
+  expires_at          TEXT,
+  revoked_at          TEXT,
+  last_used_at        TEXT,
+  created_by_user_id  TEXT,
+  metadata            TEXT,
+  FOREIGN KEY (service_client_id) REFERENCES ids_service_clients(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ids_service_api_keys_service_client_id ON ids_service_api_keys (service_client_id);
+CREATE INDEX IF NOT EXISTS idx_ids_service_api_keys_key_prefix ON ids_service_api_keys (key_prefix);
+CREATE INDEX IF NOT EXISTS idx_ids_service_api_keys_status ON ids_service_api_keys (status);
+CREATE INDEX IF NOT EXISTS idx_ids_service_api_keys_expires_at ON ids_service_api_keys (expires_at);
+
+CREATE TABLE IF NOT EXISTS ids_token_events (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT,
+  session_id  TEXT,
+  app_id      TEXT,
+  tenant_id   TEXT,
+  token_type  TEXT NOT NULL,
+  event_type  TEXT NOT NULL,
+  jti         TEXT,
+  subject     TEXT,
+  audience    TEXT,
+  success     INTEGER NOT NULL DEFAULT 0,
+  reason      TEXT,
+  ip_address  TEXT,
+  user_agent  TEXT,
+  metadata    TEXT,
+  created_at  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ids_token_events_user_id ON ids_token_events (user_id);
+CREATE INDEX IF NOT EXISTS idx_ids_token_events_session_id ON ids_token_events (session_id);
+CREATE INDEX IF NOT EXISTS idx_ids_token_events_app_id ON ids_token_events (app_id);
+CREATE INDEX IF NOT EXISTS idx_ids_token_events_event_type ON ids_token_events (event_type);
+CREATE INDEX IF NOT EXISTS idx_ids_token_events_jti ON ids_token_events (jti);
+CREATE INDEX IF NOT EXISTS idx_ids_token_events_created_at ON ids_token_events (created_at);
+
+CREATE TABLE IF NOT EXISTS ids_revoked_tokens (
+  id          TEXT PRIMARY KEY,
+  jti         TEXT UNIQUE NOT NULL,
+  user_id     TEXT,
+  session_id  TEXT,
+  app_id      TEXT,
+  tenant_id   TEXT,
+  reason      TEXT,
+  revoked_at  TEXT NOT NULL,
+  expires_at  TEXT NOT NULL,
+  created_at  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ids_revoked_tokens_jti ON ids_revoked_tokens (jti);
+CREATE INDEX IF NOT EXISTS idx_ids_revoked_tokens_user_id ON ids_revoked_tokens (user_id);
+CREATE INDEX IF NOT EXISTS idx_ids_revoked_tokens_session_id ON ids_revoked_tokens (session_id);
+CREATE INDEX IF NOT EXISTS idx_ids_revoked_tokens_expires_at ON ids_revoked_tokens (expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_ids_sessions_token_hash ON ids_sessions (session_token_hash);
+
+UPDATE ids_service_metadata
+  SET value = 'phase_5_token_route_protection', updated_at = datetime('now')
+  WHERE key = 'phase'
+`;
+
 export async function ensureMigrations() {
   const db = (env as unknown as Env).IDS_DB;
 
-  // Check if migrations already ran (shared DB with isolatedStorage: false)
+  // Check if Phase 5 tables already exist (shared DB with isolatedStorage: false)
+  // If they do, all migrations have run — only bootstrap the service key.
   try {
     const check = await db
-      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ids_phone_verification_attempts'")
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ids_service_clients'")
       .first();
-    if (check) return; // Already migrated
+    if (check) {
+      // Phase 5 tables exist — just ensure the test service key is ready.
+      await bootstrapTestServiceKey();
+      return;
+    }
   } catch {
-    // Table doesn't exist yet, proceed
+    // Table doesn't exist yet, proceed with full migration.
   }
 
+  // ── Phases 1–4B ──────────────────────────────────────────────────────────
   for (const migration of [MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_4B]) {
     for (const sql of migration.split(";")) {
       const trimmed = sql.trim();
@@ -726,13 +825,24 @@ export async function ensureMigrations() {
     }
   }
 
-  // Run seeds separately (they have complex INSERT ... SELECT)
+  // Seeds (complex INSERT … SELECT statements)
   for (const sql of MIGRATION_4_SEEDS.split(";")) {
     const trimmed = sql.trim();
     if (trimmed.length > 0) {
       await db.prepare(trimmed).run();
     }
   }
+
+  // ── Phase 5 ───────────────────────────────────────────────────────────────
+  for (const sql of MIGRATION_5.split(";")) {
+    const trimmed = sql.trim();
+    if (trimmed.length > 0) {
+      await db.prepare(trimmed).run();
+    }
+  }
+
+  // Bootstrap the test service client after all migrations are applied.
+  await bootstrapTestServiceKey();
 }
 
 /** Quick helper to make JSON requests. */
@@ -746,6 +856,96 @@ export function jsonRequest(
     headers: { "Content-Type": "application/json" },
   };
   if (body !== undefined) {
+    init.body = JSON.stringify(body);
+  }
+  return new Request(`http://localhost${path}`, init);
+}
+
+// ────────────────────────────────────────────────────────────
+// Phase 5: shared test service client
+// ────────────────────────────────────────────────────────────
+
+const TEST_BOOTSTRAP_KEY = "test-bootstrap-key-not-real";
+
+/**
+ * Module-level cache for the shared test service API key.
+ * Set by ensureMigrations() — all test files share the same key.
+ */
+let _sharedTestServiceKey: string | null = null;
+
+/**
+ * Returns a service API key for use in test requests to internal routes.
+ * This key is bootstrapped once during ensureMigrations().
+ * Throws if ensureMigrations() has not been called yet.
+ */
+export function getTestServiceKey(): string {
+  if (!_sharedTestServiceKey) {
+    throw new Error(
+      "Test service key not ready — ensure ensureMigrations() was called in beforeAll()."
+    );
+  }
+  return _sharedTestServiceKey;
+}
+
+/**
+ * Makes a JSON request to an internal route with the shared test service key.
+ * This is a convenience wrapper for tests that hit /api/internal/... routes.
+ * Requires ensureMigrations() to have been called first.
+ */
+export function serviceRequest(
+  path: string,
+  method: string = "GET",
+  body?: unknown
+) {
+  return authedRequest(path, method, body, {
+    "x-ids-service-key": getTestServiceKey(),
+  });
+}
+
+async function bootstrapTestServiceKey(): Promise<void> {
+  if (_sharedTestServiceKey) return; // already done
+
+  const { SELF: SelfFetch } = await import("cloudflare:test");
+
+  // Try to create the shared test service client.
+  const res = await SelfFetch.fetch(
+    authedRequest(
+      "/api/internal/service-clients/bootstrap",
+      "POST",
+      { clientId: "test_service_client", name: "Shared Test Service Client" },
+      { "x-ids-bootstrap-key": TEST_BOOTSTRAP_KEY }
+    )
+  );
+
+  if (res.status === 201 || res.status === 200) {
+    // 201 = new client created; 200 = client already existed, new API key issued.
+    // Both return { data: { apiKey: { rawKey: string } } }.
+    const body = await res.json<{
+      data: { apiKey: { rawKey: string } };
+    }>();
+    _sharedTestServiceKey = body.data.apiKey.rawKey;
+  } else {
+    const text = await res.text();
+    throw new Error(
+      `Failed to bootstrap test service key: ${res.status} ${text}`
+    );
+  }
+}
+
+/**
+ * Phase 5: like jsonRequest but also supports extra headers (e.g., auth headers).
+ */
+export function authedRequest(
+  path: string,
+  method: string = "GET",
+  body?: unknown,
+  extraHeaders: Record<string, string> = {}
+) {
+  const init: RequestInit = {
+    method,
+    headers: { "Content-Type": "application/json", ...extraHeaders },
+  };
+  if (body !== undefined && method !== "GET" && method !== "HEAD") {
     init.body = JSON.stringify(body);
   }
   return new Request(`http://localhost${path}`, init);

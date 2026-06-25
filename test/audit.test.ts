@@ -5,7 +5,7 @@ import {
 } from "cloudflare:test";
 import { describe, it, expect, beforeAll } from "vitest";
 import app from "../src/index";
-import { ensureMigrations, jsonRequest } from "./setup";
+import { ensureMigrations, serviceRequest } from "./setup";
 
 beforeAll(async () => {
   await ensureMigrations();
@@ -24,7 +24,7 @@ async function getAuditLogs(eventType: string) {
 
 describe("Audit logging", () => {
   it("writes user_created audit log", async () => {
-    const req = jsonRequest("/api/internal/users", "POST", {
+    const req = serviceRequest("/api/internal/users", "POST", {
       displayName: "Audit Create Test",
       email: "audit-create@example.com",
     });
@@ -42,7 +42,7 @@ describe("Audit logging", () => {
 
   it("writes user_status_updated audit log", async () => {
     // Create user
-    const createReq = jsonRequest("/api/internal/users", "POST", {
+    const createReq = serviceRequest("/api/internal/users", "POST", {
       displayName: "Audit Status Test",
       email: "audit-status@example.com",
     });
@@ -52,7 +52,7 @@ describe("Audit logging", () => {
     const userId = ((await createRes.json()) as any).data.user.id;
 
     // Update status
-    const req = jsonRequest(
+    const req = serviceRequest(
       `/api/internal/users/${userId}/status`,
       "PATCH",
       { status: "pending_verification" }
@@ -69,7 +69,7 @@ describe("Audit logging", () => {
 
   it("writes session_created audit log", async () => {
     // Create user
-    const userReq = jsonRequest("/api/internal/users", "POST", {
+    const userReq = serviceRequest("/api/internal/users", "POST", {
       displayName: "Audit Session Test",
       email: "audit-session@example.com",
     });
@@ -79,7 +79,7 @@ describe("Audit logging", () => {
     const userId = ((await userRes.json()) as any).data.user.id;
 
     // Create session
-    const req = jsonRequest("/api/internal/sessions", "POST", {
+    const req = serviceRequest("/api/internal/sessions", "POST", {
       userId,
       appId: "kai",
     });
@@ -95,7 +95,7 @@ describe("Audit logging", () => {
 
   it("writes session_revoked audit log", async () => {
     // Create user
-    const userReq = jsonRequest("/api/internal/users", "POST", {
+    const userReq = serviceRequest("/api/internal/users", "POST", {
       displayName: "Audit Revoke Test",
       email: "audit-revoke@example.com",
     });
@@ -105,7 +105,7 @@ describe("Audit logging", () => {
     const userId = ((await userRes.json()) as any).data.user.id;
 
     // Create session
-    const sessReq = jsonRequest("/api/internal/sessions", "POST", {
+    const sessReq = serviceRequest("/api/internal/sessions", "POST", {
       userId,
       appId: "carehia",
     });
@@ -115,7 +115,7 @@ describe("Audit logging", () => {
     const sessionId = ((await sessRes.json()) as any).data.session.id;
 
     // Revoke
-    const revokeReq = jsonRequest(
+    const revokeReq = serviceRequest(
       `/api/internal/sessions/${sessionId}/revoke`,
       "POST"
     );

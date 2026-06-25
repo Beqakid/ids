@@ -29,7 +29,7 @@ export function error(
   c: Context,
   code: string,
   message: string,
-  status: 400 | 401 | 403 | 404 | 500 = 500
+  status: 400 | 401 | 403 | 404 | 409 | 500 = 500
 ) {
   const requestId = (c.get("requestId") as string) || "unknown";
   const body: ErrorResponse = {

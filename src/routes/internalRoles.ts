@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { requireServiceAuth } from "../middleware/auth";
 import type { HonoEnv } from "../types/env";
 import { success, error } from "../lib/response";
 import {
@@ -26,6 +27,10 @@ import {
 import { getPermissionByKey } from "../services/permissions";
 
 const internalRoles = new Hono<HonoEnv>();
+
+// Phase 5: protect all routes in this group with service/user auth.
+// TODO: Phase 6 — add permission-level checks (ids.users.read etc.) per route.
+internalRoles.use("*", requireServiceAuth());
 
 // ── GET /api/internal/roles ──────────────────────────────────
 // TODO: Phase 5 — protect with API key, signed JWT, or service-to-service authorization.

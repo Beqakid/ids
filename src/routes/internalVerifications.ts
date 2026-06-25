@@ -8,6 +8,7 @@
  * TODO: Future — add MFA support.
  */
 import { Hono } from "hono";
+import { requireServiceAuth } from "../middleware/auth";
 import type { HonoEnv } from "../types/env";
 import { success, error } from "../lib/response";
 import {
@@ -36,6 +37,10 @@ import { getUserById } from "../services/users";
 import { parseLimitOffset } from "../lib/validation";
 
 const verifications = new Hono<HonoEnv>();
+
+// Phase 5: protect all verification routes with service/user auth.
+// TODO: Phase 6 — add permission-level checks per route.
+verifications.use("*", requireServiceAuth());
 
 // ── POST /phone/start ────────────────────────────────────────
 verifications.post("/phone/start", async (c) => {
@@ -178,6 +183,9 @@ verifications.post("/phone/check", async (c) => {
 // But defined here for clarity, will be exported separately.
 
 export const userPhoneVerificationRoutes = new Hono<HonoEnv>();
+
+// Phase 5: protect with service/user auth.
+userPhoneVerificationRoutes.use("*", requireServiceAuth());
 
 userPhoneVerificationRoutes.get("/:id/phone-verifications", async (c) => {
   try {

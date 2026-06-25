@@ -4,7 +4,7 @@ import {
   waitOnExecutionContext,
 } from "cloudflare:test";
 import { describe, it, expect, beforeAll } from "vitest";
-import { ensureMigrations, jsonRequest } from "./setup";
+import { ensureMigrations, serviceRequest } from "./setup";
 import app from "../src/index";
 import type { Env } from "../src/types/env";
 
@@ -15,7 +15,7 @@ beforeAll(async () => {
   await ensureMigrations();
 
   // Create a test user for owner references
-  const req = jsonRequest("/api/internal/users", "POST", {
+  const req = serviceRequest("/api/internal/users", "POST", {
     displayName: "Tenant Test User",
     email: "tenant-test@example.com",
   });
@@ -28,7 +28,7 @@ beforeAll(async () => {
 
 describe("POST /api/internal/tenants", () => {
   it("creates a tenant", async () => {
-    const req = jsonRequest("/api/internal/tenants", "POST", {
+    const req = serviceRequest("/api/internal/tenants", "POST", {
       appId: "viliniu",
       tenantKey: "derebu-farmers",
       name: "Derebu Farmers",
@@ -51,7 +51,7 @@ describe("POST /api/internal/tenants", () => {
   });
 
   it("rejects invalid tenant_key", async () => {
-    const req = jsonRequest("/api/internal/tenants", "POST", {
+    const req = serviceRequest("/api/internal/tenants", "POST", {
       appId: "viliniu",
       tenantKey: "Invalid Key!",
       name: "Bad",
@@ -67,7 +67,7 @@ describe("POST /api/internal/tenants", () => {
   });
 
   it("rejects duplicate tenant_key within same app", async () => {
-    const req = jsonRequest("/api/internal/tenants", "POST", {
+    const req = serviceRequest("/api/internal/tenants", "POST", {
       appId: "viliniu",
       tenantKey: "derebu-farmers",
       name: "Duplicate",
@@ -83,7 +83,7 @@ describe("POST /api/internal/tenants", () => {
   });
 
   it("allows same tenant_key across different apps", async () => {
-    const req = jsonRequest("/api/internal/tenants", "POST", {
+    const req = serviceRequest("/api/internal/tenants", "POST", {
       appId: "carehia",
       tenantKey: "derebu-farmers",
       name: "Derebu Farmers Carehia",
@@ -100,7 +100,7 @@ describe("POST /api/internal/tenants", () => {
   });
 
   it("rejects non-existent owner_user_id", async () => {
-    const req = jsonRequest("/api/internal/tenants", "POST", {
+    const req = serviceRequest("/api/internal/tenants", "POST", {
       appId: "viliniu",
       tenantKey: "ghost-owner-tenant",
       name: "Ghost Owner",
@@ -115,7 +115,7 @@ describe("POST /api/internal/tenants", () => {
   });
 
   it("rejects invalid tenant status", async () => {
-    const req = jsonRequest("/api/internal/tenants", "POST", {
+    const req = serviceRequest("/api/internal/tenants", "POST", {
       appId: "viliniu",
       tenantKey: "bad-status-tenant",
       name: "Bad Status",
@@ -142,8 +142,8 @@ describe("POST /api/internal/tenants", () => {
 
 describe("GET /api/internal/tenants/:id", () => {
   it("returns tenant by ID", async () => {
-    const req = new Request(
-      `http://localhost/api/internal/tenants/${testTenantId}`
+    const req = serviceRequest(
+      `/api/internal/tenants/${testTenantId}`
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -158,8 +158,8 @@ describe("GET /api/internal/tenants/:id", () => {
 
 describe("GET /api/internal/apps/:appId/tenants/:tenantKey", () => {
   it("returns tenant by appId + tenantKey", async () => {
-    const req = new Request(
-      "http://localhost/api/internal/apps/viliniu/tenants/derebu-farmers"
+    const req = serviceRequest(
+      "/api/internal/apps/viliniu/tenants/derebu-farmers"
     );
     const ctx = createExecutionContext();
     const res = await app.fetch(req, env, ctx);
@@ -174,7 +174,7 @@ describe("GET /api/internal/apps/:appId/tenants/:tenantKey", () => {
 
 describe("PATCH /api/internal/tenants/:id/status", () => {
   it("updates tenant status", async () => {
-    const req = jsonRequest(
+    const req = serviceRequest(
       `/api/internal/tenants/${testTenantId}/status`,
       "PATCH",
       { status: "suspended" }
@@ -190,7 +190,7 @@ describe("PATCH /api/internal/tenants/:id/status", () => {
 
   // Revert for subsequent tests
   it("can revert tenant status back to active", async () => {
-    const req = jsonRequest(
+    const req = serviceRequest(
       `/api/internal/tenants/${testTenantId}/status`,
       "PATCH",
       { status: "active" }

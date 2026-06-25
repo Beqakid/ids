@@ -4,7 +4,7 @@ import {
   waitOnExecutionContext,
 } from "cloudflare:test";
 import { describe, it, expect, beforeAll } from "vitest";
-import { ensureMigrations, jsonRequest } from "./setup";
+import { ensureMigrations, serviceRequest } from "./setup";
 import app from "../src/index";
 import type { Env } from "../src/types/env";
 
@@ -94,7 +94,7 @@ describe("GET /api/apps/:appId", () => {
 
 describe("POST /api/internal/apps", () => {
   it("creates a new app", async () => {
-    const req = jsonRequest("/api/internal/apps", "POST", {
+    const req = serviceRequest("/api/internal/apps", "POST", {
       appId: "test_app",
       name: "Test App",
       appType: "service",
@@ -113,7 +113,7 @@ describe("POST /api/internal/apps", () => {
   });
 
   it("rejects duplicate app_id", async () => {
-    const req = jsonRequest("/api/internal/apps", "POST", {
+    const req = serviceRequest("/api/internal/apps", "POST", {
       appId: "test_app",
       name: "Duplicate",
     });
@@ -127,7 +127,7 @@ describe("POST /api/internal/apps", () => {
   });
 
   it("rejects invalid app_id format", async () => {
-    const req = jsonRequest("/api/internal/apps", "POST", {
+    const req = serviceRequest("/api/internal/apps", "POST", {
       appId: "Invalid App-ID!",
       name: "Bad",
     });
@@ -141,7 +141,7 @@ describe("POST /api/internal/apps", () => {
   });
 
   it("rejects invalid app status", async () => {
-    const req = jsonRequest("/api/internal/apps", "POST", {
+    const req = serviceRequest("/api/internal/apps", "POST", {
       appId: "bad_status_app",
       name: "Bad Status",
       status: "invalid_status",
@@ -168,7 +168,7 @@ describe("POST /api/internal/apps", () => {
 
 describe("PATCH /api/internal/apps/:appId/status", () => {
   it("updates app status", async () => {
-    const req = jsonRequest("/api/internal/apps/test_app/status", "PATCH", {
+    const req = serviceRequest("/api/internal/apps/test_app/status", "PATCH", {
       status: "active",
     });
     const ctx = createExecutionContext();
