@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { requireServiceAuth } from "../middleware/auth";
 import type { HonoEnv } from "../types/env";
 import { success, error } from "../lib/response";
 import { getTenantByKey } from "../services/tenants";
@@ -7,6 +8,10 @@ import { listMembershipsForApp } from "../services/memberships";
 import { getTenantByIdSilent } from "../services/tenants";
 
 const internalTenantMemberships = new Hono<HonoEnv>();
+
+// Phase 5: protect all routes in this group with service/user auth.
+// TODO: Phase 6 — add permission-level checks (ids.users.read etc.) per route.
+internalTenantMemberships.use("*", requireServiceAuth());
 
 /**
  * GET /api/internal/tenants/:id/memberships

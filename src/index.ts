@@ -6,6 +6,7 @@ import { errorHandler } from "./middleware/errorHandler";
 import healthRoutes from "./routes/health";
 import appsRoutes from "./routes/apps";
 import usersRoutes from "./routes/users";
+import authRoutes from "./routes/auth";
 import internalUsersRoutes from "./routes/internalUsers";
 import internalSessionsRoutes from "./routes/internalSessions";
 import internalAppsRoutes from "./routes/internalApps";
@@ -21,6 +22,8 @@ import internalPermissionChecksRoutes from "./routes/internalPermissionChecks";
 import internalUserPermissionsRoutes from "./routes/internalUserPermissions";
 import internalVerificationsRoutes from "./routes/internalVerifications";
 import { userPhoneVerificationRoutes } from "./routes/internalVerifications";
+import serviceClientRoutes from "./routes/serviceClients";
+import tokenEventRoutes from "./routes/tokenEvents";
 
 const app = new Hono<HonoEnv>();
 
@@ -32,9 +35,18 @@ app.use("*", errorHandler);
 // ── API routes ───────────────────────────────────────────────
 const api = new Hono<HonoEnv>();
 
+// Public routes (no auth required)
 api.route("/", healthRoutes);
 api.route("/", appsRoutes);
+// GET /api/users/me — uses optional auth (Phase 5)
 api.route("/", usersRoutes);
+
+// Auth routes (Phase 5) — no blanket auth; each route manages its own
+api.route("/auth", authRoutes);
+
+// ── Protected internal routes (Phase 5) ─────────────────────
+// Each route group applies requireServiceAuth() via .use("*", ...) internally.
+// The bootstrap route (/internal/service-clients/bootstrap) uses requireBootstrapAuth() instead.
 
 // Internal routes (Phase 2)
 api.route("/internal/users", internalUsersRoutes);
@@ -60,6 +72,10 @@ api.route("/internal/users", internalUserPermissionsRoutes);
 // Internal routes (Phase 4B)
 api.route("/internal/verifications", internalVerificationsRoutes);
 api.route("/internal/users", userPhoneVerificationRoutes);
+
+// Internal routes (Phase 5)
+api.route("/internal/service-clients", serviceClientRoutes);
+api.route("/internal/token-events", tokenEventRoutes);
 
 app.route("/api", api);
 
