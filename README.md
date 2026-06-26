@@ -31,7 +31,7 @@ IDS is a **standalone** Cloudflare Worker that serves as the single source of tr
 
 ---
 
-## Current Phase: Phase 5 — JWT Token Platform & Service Auth
+## Current Phase: Phase 7 — TrustProof Engine Foundation
 
 ### What IDS can answer after Phase 5:
 - **Which app** is this request coming from? Is it registered and active?
@@ -64,7 +64,8 @@ IDS is a **standalone** Cloudflare Worker that serves as the single source of tr
 | 4 | Roles + Permissions | ✅ Complete |
 | 4B | Twilio Phone Verification | ✅ Complete |
 | 5 | JWT Token Platform + Service Auth | ✅ Complete |
-| 6 | OAuth / SSO / External IdP | 📋 Planned |
+| 6 | Command Center + Kai Integration | ✅ Complete |
+| 7 | TrustProof Engine Foundation | ✅ Complete |
 
 ---
 
@@ -486,3 +487,142 @@ All routes require service auth.
 - Action contexts expire after 1 hour to prevent replay
 - Kai action execution is not performed by IDS — IDS issues context and receipts only
 - Trust receipt envelopes are `draft`-only this phase; full TrustProof engine deferred to Phase 7
+
+
+---
+
+## Phase 7 — TrustProof Engine Foundation
+
+> Phase 7 is IDS-side only. No changes to Command Center, Kai, Carehia, Viliniu, Volau, or SMS.
+
+### Overview
+
+Phase 7 introduces the **TrustProof Engine** — an immutable, hash-verified audit and accountability layer for every significant action in the platform ecosystem.
+
+### New Tables (Migration 0007)
+
+| Table | Purpose |
+|-------|---------|
+| `ids_trust_receipts` | Core receipt records (immutable after finalization) |
+| `ids_trust_receipt_events` | Timeline events for each receipt |
+| `ids_trust_receipt_proof_links` | Supporting evidence attached to receipts |
+| `ids_trust_receipt_verifications` | Every public verification attempt |
+| `ids_trust_receipt_counters` | Atomic per-app-per-day receipt number sequences |
+
+### New Routes
+
+#### Protected TrustProof Routes (`/api/trustproof`)
+All routes require Bearer IDS JWT or `x-ids-service-key`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/trustproof/receipts` | Create a draft receipt |
+| `POST` | `/api/trustproof/receipts/from-envelope/:envelopeId` | Create receipt from Phase 6 envelope |
+| `POST` | `/api/trustproof/receipts/from-kai-action/:actionContextId` | Create receipt from Kai action context |
+| `GET` | `/api/trustproof/receipts` | List receipts (filterable + paginated) |
+| `GET` | `/api/trustproof/receipts/:id` | Get receipt by UUID |
+| `GET` | `/api/trustproof/receipts/number/:receiptNumber` | Get receipt by number |
+| `POST` | `/api/trustproof/receipts/:id/finalize` | Finalize a draft receipt |
+| `POST` | `/api/trustproof/receipts/:id/cancel` | Cancel a draft receipt |
+| `POST` | `/api/trustproof/receipts/:id/void` | Void a finalized receipt |
+| `GET` | `/api/trustproof/receipts/:id/events` | List receipt timeline events |
+| `POST` | `/api/trustproof/receipts/:id/events` | Add a timeline event |
+| `GET` | `/api/trustproof/receipts/:id/proof-links` | List proof links |
+| `POST` | `/api/trustproof/receipts/:id/proof-links` | Attach a proof link |
+| `POST` | `/api/trustproof/proof-links/:id/remove` | Soft-remove a proof link |
+
+#### Public TrustProof Verification Routes (`/api/public/trustproof`)
+No auth required. Every attempt is logged.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/public/trustproof/verify/:receiptNumber` | Verify by receipt number (GET) |
+| `POST` | `/api/public/trustproof/verify` | Verify by receipt number (POST body) |
+
+### Receipt Number Format
+
+```
+TP-YYYYMMDD-APPKEY-000001
+```
+
+Examples: `TP-20240115-KAI-000001`, `TP-20240115-COMMANDCENT-000042`
+
+### Receipt Lifecycle
+
+```
+[draft] → finalize → [finalized] → void → [voided]
+[draft] → cancel → [canceled]
+```
+
+- Only `draft → finalized` and `finalized → voided` transitions are allowed.
+- No hard deletes; all transitions are soft.
+
+### Public Verification Response (safe fields only)
+
+```json
+{
+  "receiptNumber": "TP-20240115-KAI-000001",
+  "verificationResult": "valid",
+  "receiptType": "kai_action",
+  "sourceAppId": "kai",
+  "riskLevel": "low",
+  "status": "finalized",
+  "outcome": "allowed",
+  "publicSummary": "Action completed successfully.",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "finalizedAt": "2024-01-15T10:30:05.000Z",
+  "fingerprint": "SHA256:TP-20240115-KAI-000001:a3f1b2c4d5e6f7a8"
+}
+```
+
+`private_metadata`, `metadata`, `summary`, user emails/phones, session data, tokens, and API keys are **never** included in public responses.
+
+### Phase 7 Audit Events
+
+| Event | Trigger |
+|-------|---------|
+| `trust_receipt_created` | Receipt created |
+| `trust_receipt_created_from_envelope` | Receipt created from envelope |
+| `trust_receipt_created_from_kai_action` | Receipt created from Kai action context |
+| `trust_receipt_finalized` | Receipt finalized |
+| `trust_receipt_canceled` | Receipt canceled |
+| `trust_receipt_voided` | Receipt voided |
+| `trust_receipt_verified` | Public verification succeeded |
+| `trust_receipt_verification_failed` | Public verification failed |
+| `trust_receipt_proof_link_added` | Proof link attached |
+| `trust_receipt_proof_link_removed` | Proof link removed |
+| `trust_receipt_event_added` | Custom event added |
+
+### Phase 7 Security Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| `private_metadata` excluded from all responses including protected routes | Defense in depth |
+| Public verify logs every attempt | Full audit trail; rate limiting is infra-level |
+| SHA-256 via Web Crypto only | Worker-compatible; no Node-only APIs |
+| Canonical JSON (sorted keys, explicit nulls) | Deterministic hash |
+| Finalized receipts cannot be canceled | Preserves integrity of evidence |
+| Draft receipts cannot be voided | Void implies finalized evidence |
+| Receipt counters use atomic D1 RETURNING | No race conditions |
+| No hard deletes | Full audit trail preserved |
+
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `migrations/0007_trustproof_engine.sql` | 5 new tables + 28 indexes |
+| `src/types/trustProof.ts` | All Phase 7 enums and TypeScript types |
+| `src/lib/trustProofHash.ts` | Web Crypto SHA-256 hash utilities |
+| `src/lib/receiptNumbers.ts` | Atomic receipt number generation |
+| `src/services/trustProof.ts` | Full TrustProof service (15 functions) |
+| `src/routes/trustProof.ts` | Protected TrustProof API routes |
+| `src/routes/trustProofPublic.ts` | Public verification routes |
+| `docs/trustproof-engine.md` | Full Phase 7 documentation |
+| `tests/phase7-trustproof.test.ts` | ~60 test cases |
+
+### Recommended Phase 8: SMS Proof Asset Hook Integration
+
+Phase 8 will connect the TrustProof Engine to the SMS service's media assets, enabling:
+- Auto-attach SMS/R2 media assets to receipts as proof links (`sms_future` provider).
+- Webhook hooks for automatic proof attachment on media upload.
+- Read-only customer-facing receipt status endpoint (scoped, not full verify).

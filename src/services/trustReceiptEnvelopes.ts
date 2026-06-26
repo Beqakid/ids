@@ -7,6 +7,14 @@
  *
  * TODO: Phase 7 — Full TrustProof Engine: finalization, receipt verification,
  *       receipt timeline, SMS proof asset hooks, and external proof links.
+ *
+ * TODO: Phase 7 — Envelope → TrustProof Receipt Linking:
+ *       Call `createTrustReceiptFromEnvelope(envelopeId, ...)` in trustProof.ts
+ *       to promote a Phase 6 envelope to a full Phase 7 TrustProof receipt.
+ *       The receipt will inherit: receiptType, sourceAppId, sourceTenantId,
+ *       userId, actionContextId, riskLevel, actionKey, and summary.
+ *       The envelope is NOT deleted after linking; it remains as an audit artifact.
+ *       Link can be queried via `ids_trust_receipts.envelope_id`.
  */
 
 import type { Env } from "../types/env";

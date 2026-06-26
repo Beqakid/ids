@@ -27,6 +27,9 @@ import tokenEventRoutes from "./routes/tokenEvents";
 import platformContextRoutes from "./routes/platformContext";
 import kaiContextRoutes from "./routes/kaiContext";
 import trustReceiptRoutes from "./routes/trustReceiptEnvelopes";
+// Phase 7: TrustProof Engine
+import trustProofRoutes from "./routes/trustProof";
+import trustProofPublicRoutes from "./routes/trustProofPublic";
 
 const app = new Hono<HonoEnv>();
 
@@ -90,7 +93,18 @@ api.route("/kai", kaiContextRoutes);
 // Trust receipt envelopes (internal, protected by service auth)
 api.route("/internal/trust-receipts", trustReceiptRoutes);
 
+// ── Phase 7 routes — TrustProof Engine ───────────────────────
+// Protected TrustProof engine routes (service auth required)
+api.route("/trustproof", trustProofRoutes);
+
 app.route("/api", api);
+
+// ── Public TrustProof verification routes (no auth required) ─
+// Mounted at /api/public/trustproof (outside the api sub-router to keep
+// the /public prefix clearly visible and avoid accidental auth inheritance).
+const publicApi = new Hono<HonoEnv>();
+publicApi.route("/trustproof", trustProofPublicRoutes);
+app.route("/api/public", publicApi);
 
 // ── Root redirect ────────────────────────────────────────────
 app.get("/", (c) => {

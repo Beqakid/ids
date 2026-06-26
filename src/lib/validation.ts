@@ -322,14 +322,23 @@ export function isValidKaiActionStatus(value: string): boolean {
   ].includes(value);
 }
 
+/**
+ * isValidTrustReceiptType — Phase 6 + Phase 7 expanded.
+ * Phase 7 adds: phone_verification, delivery_proof, care_event, vendor_event, knowledge_review.
+ */
 export function isValidTrustReceiptType(value: string): boolean {
   return [
     "kai_action",
     "permission_check",
     "verification",
+    "phone_verification",
     "media_proof",
     "admin_action",
     "system_event",
+    "delivery_proof",
+    "care_event",
+    "vendor_event",
+    "knowledge_review",
   ].includes(value);
 }
 
@@ -346,4 +355,140 @@ const ACTION_KEY_RE = /^[a-z0-9][a-z0-9._\-]*$/;
 
 export function isValidActionKey(value: string): boolean {
   return value.length > 0 && ACTION_KEY_RE.test(value);
+}
+
+// ── Phase 7 additions — TrustProof Engine ────────────────────
+
+/**
+ * TrustProof receipt action type.
+ * Phase 7 expands the action type set with upload and complete.
+ */
+export function isValidTrustReceiptActionType(value: string): boolean {
+  return [
+    "explain",
+    "draft",
+    "prepare",
+    "dispatch",
+    "update",
+    "delete",
+    "verify",
+    "review",
+    "approve",
+    "reject",
+    "upload",
+    "complete",
+    "system",
+  ].includes(value);
+}
+
+/** TrustProof receipt risk level. Identical to Kai risk levels. */
+export function isValidTrustReceiptRiskLevel(value: string): boolean {
+  return ["low", "medium", "high", "blocked"].includes(value);
+}
+
+/** TrustProof receipt lifecycle status. */
+export function isValidTrustReceiptStatus(value: string): boolean {
+  return ["draft", "finalized", "canceled", "expired", "voided"].includes(value);
+}
+
+/** TrustProof receipt outcome. */
+export function isValidTrustReceiptOutcome(value: string): boolean {
+  return [
+    "allowed",
+    "denied",
+    "confirmed",
+    "completed",
+    "failed",
+    "canceled",
+    "pending",
+    "approved",
+    "rejected",
+  ].includes(value);
+}
+
+/** TrustProof receipt timeline event type. */
+export function isValidTrustReceiptEventType(value: string): boolean {
+  return [
+    "receipt_created",
+    "receipt_finalized",
+    "receipt_verified",
+    "receipt_canceled",
+    "receipt_voided",
+    "receipt_expired",
+    "action_prepared",
+    "action_confirmed",
+    "action_denied",
+    "action_completed",
+    "proof_link_added",
+    "proof_link_removed",
+    "verification_checked",
+    "metadata_updated",
+    "system_note_added",
+  ].includes(value);
+}
+
+/** TrustProof proof link type. */
+export function isValidProofLinkType(value: string): boolean {
+  return [
+    "image",
+    "document",
+    "video",
+    "audio",
+    "signature",
+    "verification_event",
+    "media_asset",
+    "system_log",
+    "external_reference",
+  ].includes(value);
+}
+
+/** TrustProof proof link provider. */
+export function isValidProofProvider(value: string): boolean {
+  return [
+    "internal",
+    "sms_future",
+    "r2_future",
+    "twilio",
+    "manual",
+    "external",
+  ].includes(value);
+}
+
+/** TrustProof proof link status. */
+export function isValidProofLinkStatus(value: string): boolean {
+  return ["attached", "removed", "rejected", "unavailable"].includes(value);
+}
+
+/**
+ * Validate a TrustProof receipt number.
+ * Format: TP-YYYYMMDD-APPKEY-000001
+ *   - TP: literal prefix
+ *   - YYYYMMDD: 8-digit date
+ *   - APPKEY: 1–12 uppercase letters/digits
+ *   - NNNNNN: 1–9 digit sequence number
+ */
+const RECEIPT_NUMBER_RE = /^TP-\d{8}-[A-Z0-9]{1,12}-\d{1,9}$/;
+
+export function isValidReceiptNumber(value: string): boolean {
+  if (typeof value !== "string") return false;
+  return RECEIPT_NUMBER_RE.test(value.trim().toUpperCase());
+}
+
+/**
+ * Check that a public summary is safe to expose.
+ * Must be a non-empty string, max 500 chars.
+ * Must not contain raw PII markers (@ for emails, phone-like patterns).
+ *
+ * NOTE: This is a best-effort heuristic — app code is responsible for
+ * not putting sensitive data in publicSummary.
+ */
+export function isSafePublicSummary(value: string): boolean {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > 500) return false;
+  // Reject strings that look like raw emails
+  if (EMAIL_RE.test(trimmed)) return false;
+  // Reject strings that look like raw phone numbers (+1234567890)
+  if (/^\+?\d{7,15}$/.test(trimmed.replace(/[\s\-\(\)\.]/g, ""))) return false;
+  return true;
 }
