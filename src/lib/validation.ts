@@ -159,6 +159,70 @@ export function isValidPermissionEffect(value: string): boolean {
   return ["allow", "deny"].includes(value);
 }
 
+// ── Phase 5 additions ────────────────────────────────────────
+
+/**
+ * client_id must be lowercase snake_case (letters, digits, underscores).
+ * Same rules as app_id and role_key.
+ */
+const CLIENT_ID_RE = /^[a-z][a-z0-9_]*$/;
+
+export function isValidClientId(value: string): boolean {
+  return CLIENT_ID_RE.test(value);
+}
+
+/** Scope must be a non-empty string. */
+export function isValidScope(value: string): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+/** Access token TTL must be between 1 and 3600 seconds. */
+export function isValidJwtTtl(value: number): boolean {
+  return Number.isInteger(value) && value >= 1 && value <= 3600;
+}
+
+/** Service client status must be active | suspended | revoked | archived. */
+export function isValidServiceClientStatus(value: string): boolean {
+  return ["active", "suspended", "revoked", "archived"].includes(value);
+}
+
+/** Service API key status must be active | revoked | expired. */
+export function isValidServiceApiKeyStatus(value: string): boolean {
+  return ["active", "revoked", "expired"].includes(value);
+}
+
+/**
+ * Parse a Bearer token from an Authorization header value.
+ * Returns the raw token string or null if not present/invalid.
+ */
+export function parseBearerToken(header: string | null | undefined): string | null {
+  if (!header) return null;
+  const trimmed = header.trim();
+  if (!trimmed.toLowerCase().startsWith("bearer ")) return null;
+  const token = trimmed.slice(7).trim();
+  return token.length > 0 ? token : null;
+}
+
+/**
+ * Parse a service API key from an x-ids-service-key header value.
+ * Returns the raw key or null if not present.
+ */
+export function parseServiceApiKey(header: string | null | undefined): string | null {
+  if (!header) return null;
+  const trimmed = header.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Parse a bootstrap key from an x-ids-bootstrap-key header value.
+ * Returns the raw key or null if not present.
+ */
+export function parseBootstrapKey(header: string | null | undefined): string | null {
+  if (!header) return null;
+  const trimmed = header.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 // ── Phase 4B additions ───────────────────────────────────────
 
 /** Phone verification channel must be sms, call, or whatsapp. */
@@ -208,4 +272,78 @@ export function requireCode(value: unknown): string {
     throw new ValidationError("A valid verification code is required.");
   }
   return value.trim();
+}
+
+// ── Phase 6 additions ────────────────────────────────────────
+
+export function isValidRequesterType(value: string): boolean {
+  return ["command_center", "kai", "service", "internal", "test"].includes(value);
+}
+
+export function isValidPlatformContextType(value: string): boolean {
+  return [
+    "platform_summary",
+    "user_app_context",
+    "kai_action_context",
+    "app_access_summary",
+    "tenant_access_summary",
+  ].includes(value);
+}
+
+export function isValidKaiActionType(value: string): boolean {
+  return [
+    "explain",
+    "draft",
+    "prepare",
+    "dispatch",
+    "update",
+    "delete",
+    "verify",
+    "review",
+    "approve",
+    "reject",
+    "system",
+  ].includes(value);
+}
+
+export function isValidKaiRiskLevel(value: string): boolean {
+  return ["low", "medium", "high", "blocked"].includes(value);
+}
+
+export function isValidKaiActionStatus(value: string): boolean {
+  return [
+    "prepared",
+    "confirmation_required",
+    "admin_approval_required",
+    "allowed",
+    "denied",
+    "expired",
+    "canceled",
+  ].includes(value);
+}
+
+export function isValidTrustReceiptType(value: string): boolean {
+  return [
+    "kai_action",
+    "permission_check",
+    "verification",
+    "media_proof",
+    "admin_action",
+    "system_event",
+  ].includes(value);
+}
+
+export function isValidTrustReceiptEnvelopeStatus(value: string): boolean {
+  return ["draft", "finalized", "canceled", "expired"].includes(value);
+}
+
+/**
+ * Validate an action key.
+ * Must be non-empty; lowercase letters, numbers, underscores, hyphens, and dots are allowed.
+ * Dot notation preferred (e.g. viliniu.dispatch.create).
+ */
+const ACTION_KEY_RE = /^[a-z0-9][a-z0-9._\-]*$/;
+
+export function isValidActionKey(value: string): boolean {
+  return value.length > 0 && ACTION_KEY_RE.test(value);
 }
